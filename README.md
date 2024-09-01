@@ -24,3 +24,11 @@ To do that we can append some metadata in the start of each chunk, a header.
 The header should also have a fixed length, to be easily extracted from the rest of the encrypted data.
 
 **But what?**
+There isn't really a specific answer to that but hey, here's an idea:
+Each header will contain:
+- 4 magic bytes*, to ensure we are actually dealing with a header
+- the index of the chunk
+- the IV (initialization vector) the chunk was encrypted with
+- a CRC32 checksum/hash of the header and the encrypted data
+
+\* Why use 3 when with 4 you get 0xdeadbeef ;)
