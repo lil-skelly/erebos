@@ -1,6 +1,7 @@
 """
 Erebos server, accountable for preparing and staging the chunks of the given object file
 """
+from abc import ABC, abstractmethod
 import argparse
 import contextlib
 from dataclasses import dataclass, field
@@ -10,8 +11,9 @@ import logging
 import os
 import secrets
 import socket
-from typing import Optional
+from typing import Literal, Optional
 import zlib
+import struct
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
@@ -20,8 +22,13 @@ logging.basicConfig(level=logging.DEBUG)
 CHUNK_SIZE = 1024
 MAGIC = 0xdeadbeef
 
+def swap32(i: int):
+    """Swap the endianess of a 32-bit integer"""
+    return struct.unpack("<I", struct.pack(">I", i))[0]
+
+
 @dataclass
-class FractionHeader:
+class FractionHeader(ABC):
     """
     Dataclass representing the header of a fraction.
     To initialize the CRC, create a Fraction object with a header instance as an argument.
@@ -34,28 +41,47 @@ class FractionHeader:
     magic: int
     index: int
     iv: bytes
-    crc: int = field(default=0, init=False)
+    _crc: int = field(init=False, repr=False, default=0)
+    
+    @property
+    @abstractmethod
+    def crc(self) -> int: ...
+    """Implement the CRC-32 property"""
+    
+    
+    def fields_to_bytes(
+        self,
+        endianess: Literal["big", "little"] = "big",
+    ) -> dict[str, bytes]:
+        """Return a dictionary containing the header information packed to bytes representing C structs"""
+        end = ">" if endianess=="big" else "<" # struct fmt for endianess
+        return {
+            "magic": struct.pack(f"{end}I", self.magic), # uint32_t
+            "index": struct.pack(f"{end}I", self.index), # uint32_t
+            "iv": struct.pack(f"{end}16s", self.iv), # 16-byte char[]
+            "crc": struct.pack(f"{end}I", self._crc), # uint32_t
+        }
     
 @dataclass
-class Fraction:
+class Fraction(FractionHeader):
     """
     Dataclass representing a fraction. 
-    It consists of a FractionHeader and data (bytes).
-    It automatically creates the CRC32 checksum of the header, using the information found in the header combined with the given data.
+    It is a child of FractionHeader and contains chunk data in addition to the header information.
+    It creates the CRC32 checksum of the header, using the information found in the header combined with the given data.
     """
-    header: FractionHeader
-    data: bytes
+    data: bytes = field(repr=False) # exclude from __repr__
     
-    def __post_init__(self):
-        """Post initialization (prepare CRC32 checksum for the header by combining the data)"""
-        data = (
-            self.header.magic.to_bytes(4, "big") + 
-            self.header.index.to_bytes(4, "big") + 
-            self.header.iv                       +
-            self.data
-        )
+    @property
+    def crc(self) -> int:
+        crc_data = bytes()
+        fields = self.fields_to_bytes().values()
+        for field in fields:
+            crc_data += field
+        crc_data += self.data
         
-        self.header.crc = zlib.crc32(data)
+        self._crc = zlib.crc32(crc_data)
+        
+        return self._crc
 
 class LKM:
     def __init__(self, path: str, out_path: str, key: bytes) -> None:
@@ -97,16 +123,16 @@ class LKM:
         logging.info("[info: _make_fraction] Encrypted chunk data using AES-256")
         
         # Create a fraction instance and add it to self._fractions
-        header = FractionHeader(
-            MAGIC,
-            1,
-            self._iv
+        fraction = Fraction(
+            magic=MAGIC,
+            index=index,
+            iv=self._iv,
+            data=encrypted_data
         )
-        logging.debug(f"[debug: _make_fraction] Created FractionHeader object: {header}")
-        fraction = Fraction(header, encrypted_data)
-        logging.debug(f"[debug: _make_fraction] Created Fraction object: {fraction}")
         self._fractions.append(fraction)
-        logging.info(f"[info: _make_fraction] Created fraction #{fraction.header.index}")
+
+        logging.debug(f"[debug: _make_fraction] Created Fraction object: {fraction} (crc: {fraction.crc})")
+        logging.info(f"[info: _make_fraction] Created fraction #{fraction.index}")
         
     def make_fractions(self) -> None: ...
     """Iterate through the LKM object file specified in self._path and generate Fraction objects"""
@@ -210,7 +236,7 @@ if __name__ == "__main__":
     
     lkm = LKM(args.lkm, args.directory, key)
     lkm.load() # not really required
-    lkm._make_fraction(1)
+    lkm._make_fraction(0)
     
     # Stage fractions over HTTP
     test(
