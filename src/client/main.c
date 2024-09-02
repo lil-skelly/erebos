@@ -79,15 +79,20 @@ LinkArray get_files(const char *response) {
 
     return linkarr;
 }
+
+int find_content_length(char *response){
+  char *s1 = strstr(response, "Content-Length");
+  strtok(s1,"\r\n");
+  return strtol(s1+15, NULL, 10);
+}
+
 void download_files(){
 
  // MAKE THE BUFFER BE DYNAMIC
  struct sockaddr_in sock_addr;
  struct addrinfo hints, *res, *p;
- char buffer[1024];
- char request[1024];
+ char header_buffer[256];
 
- char *msg = "GET /LICENSE HTTP/1.0\nHost:127.0.0.1\r\n\r\n";
   memset(&hints, 0, sizeof(hints));
   hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM;
@@ -118,13 +123,30 @@ void download_files(){
 
   char *index = "GET / HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n";
 
+  puts("Sending data\n");
   int bytes_send = send(s,index,strlen(index),0);
-  int bytes_recv = recv(s,buffer,sizeof(buffer) - 1, 0);
 
+  puts("Receiving headers\n");
+ int header_recv = recv(s,header_buffer,sizeof(header_buffer) - 1, 0);
+
+
+  int new_size = find_content_length(header_buffer);
+
+  char *buffer = (char *) malloc(new_size);
+  buffer[new_size - 1] = '\0';
+  if(buffer == NULL){
+    perror("Malloc error!");
+    exit(1);
+  }
+  puts("Receiving response!");
+
+  ssize_t bytes_recv = 0;
+  while((bytes_recv = recv(s, buffer,512,0) > 0)){
+    fwrite(buffer, 1, bytes_recv, stdout);
+  }
   if(bytes_recv > 0){
       buffer[bytes_recv] = '\0';
   }
-
   get_files(buffer);
 
 // IMPLEMENT DOWNLOADING THE FILES
