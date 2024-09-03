@@ -41,11 +41,13 @@ class PlainListingHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         file_list.sort(key=lambda a: a.lower())
         contents = []
-        
+
         enc = sys.getfilesystemencoding()
 
+        server_addr = self.server.server_address
+        host, port = server_addr
         for name in file_list:
-            display_name = f"http://{self.headers['Host']}{self.path}{name}"
+            display_name = f"http://{host}:{port}{self.path}{name}"
             contents.append(html.escape(display_name, quote=False))
 
         encoded = "\n".join(contents).encode(enc, "surrogateescape")
@@ -57,12 +59,13 @@ class PlainListingHTTPRequestHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(encoded)))
         self.end_headers()
         return f
-    
+
+
 def start_server(bind, port):
     test(
         HandlerClass=PlainListingHTTPRequestHandler,
         ServerClass=DualStackServer,
-        protocol="HTTP/1.1", # permit keep-alive connections
+        protocol="HTTP/1.1",  # permit keep-alive connections
         port=port,
         bind=bind,
     )
