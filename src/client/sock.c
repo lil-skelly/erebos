@@ -39,15 +39,14 @@ ssize_t recv_response(int sfd, char *buffer, size_t buffer_size) {
   total_bytes = 0;
 
   while ((bytes_recv = recv(sfd, buffer + total_bytes,
-                            buffer_size - total_bytes - 1, 0)) > 0) {
+                            buffer_size - total_bytes, 0)) > 0) {
     total_bytes += bytes_recv;
-    if (total_bytes >= (ssize_t)buffer_size - 1)
+    if (total_bytes >= (ssize_t)buffer_size)
       break; // avoid buffer overflow :P
   }
   if (bytes_recv == -1) {
     perror("Error receiving response");
   }
-  buffer[total_bytes] = '\0'; // Null-terminate the response
   return total_bytes;
 }
 

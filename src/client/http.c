@@ -4,44 +4,42 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 
 #define HTTP_BUFFER_SIZE 1024
 
 const char *CONTENT_LENGTH = "Content-Length: ";
-const char *GET_REQ_TEMPLATE = "GET %s HTTP/1.1\r\n\r\n";
+const char *GET_REQ_TEMPLATE = "GET %s HTTP/1.1\r\nConnection: keep-alive\r\n\r\n";
 
-int http_get(const char *ip, const char *port, const char *path, http_res_t *res) {
-  struct addrinfo hints, *ainfo;
-  int sfd; // socket file descriptor
+int http_get(int sfd, const char *path, http_res_t *res) {
   char buf[HTTP_BUFFER_SIZE];
   const char *status_code_start, *content_length_start, *body_start;
-  int content_length, header_length, received_length, left_length;
-  int err;
+  size_t total_bytes;
+  int bytes_read;
+  size_t content_length, header_length, received_length, left_length;
 
   buf[HTTP_BUFFER_SIZE - 1] = 0; // ensure buf is null terminated
-  sfd = -1;
-
-  setup_hints(&hints);
-
-  if (h_getaddrinfo(ip, port, &hints, &ainfo) != 0) {
-    err = HTTP_SOCKET_ERR;
-    goto cleanup;
-  }
-  sfd = create_sock_and_conn(ainfo);
-  if (sfd == -1) {
-    err = HTTP_SOCKET_ERR;
-    goto cleanup;
-  }
+  
   snprintf(buf, 1023, GET_REQ_TEMPLATE, path);
   send_request(sfd, buf);
 
-  recv_response(sfd, buf, HTTP_BUFFER_SIZE - 1);
+  total_bytes = 0;
+  while ((bytes_read = recv(sfd, buf + total_bytes, HTTP_BUFFER_SIZE - 1 - total_bytes, 0)) > 0) {
+    total_bytes += bytes_read;
+    // add temporary null terminator
+    buf[total_bytes] = 0;
+    if (NULL != strstr(buf + total_bytes - bytes_read, "\r\n\r\n")) {
+      // if we read all headers stop reading
+      break;
+    }
+
+    if (total_bytes >= HTTP_BUFFER_SIZE - 1) break;
+  }
 
   if (memcmp(buf, "HTTP", 4)) {
-    err = HTTP_INVALID_RESPONSE;
-    goto cleanup;
+    return HTTP_INVALID_RESPONSE;
   }
 
   status_code_start = strstr(buf, " ") + 1;
@@ -53,29 +51,26 @@ int http_get(const char *ip, const char *port, const char *path, http_res_t *res
   res->size = content_length;
   res->data = malloc(content_length);
   if (NULL == res->data) {
-    err = HTTP_OOM;
-    goto cleanup;
+    return HTTP_OOM;
   }
 
   body_start = strstr(buf, "\r\n\r\n") + 4;
   header_length = body_start - buf;
-  received_length = MIN(HTTP_BUFFER_SIZE - header_length, content_length);
-
+  received_length = MIN(total_bytes - header_length, content_length);
   memcpy(res->data, body_start, received_length);
 
-  if (header_length + content_length > HTTP_BUFFER_SIZE) {
+  if (total_bytes == header_length + content_length) puts("ah");
+  if (header_length + content_length > total_bytes) {
     left_length = content_length - received_length;
     recv_response(sfd, res->data + received_length, left_length);
   }
 
-  close(sfd);
   return HTTP_SUCCESS;
-
-cleanup:
-  if (sfd != -1) close(sfd);
-  return err;
 }
 
 void http_free(http_res_t *res) {
     free(res->data);
+    res->data = NULL;
+    res->size = 0;
+    res->status_code = 0;
 }
