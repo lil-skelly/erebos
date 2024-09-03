@@ -14,7 +14,8 @@ import socket
 import sys
 import urllib
 
-from lkm_parser import LKMFractionator
+from fraction import Fraction
+from fractionator import Fractionator
 
 logging.basicConfig(
     format="[%(levelname)s: %(funcName)s] %(message)s", level=logging.INFO
@@ -123,7 +124,7 @@ if __name__ == "__main__":
     key = secrets.token_bytes(32)
     logging.debug(f"Generated AES-256 key.")
 
-    lkm = LKMFractionator(args.file, args.directory, key, BACKUP_FILENAME)
+    lkm = Fractionator(args.file, args.directory, key, BACKUP_FILENAME)
 
     if args.clean:
         lkm.clean_fractions()
@@ -143,7 +144,7 @@ if __name__ == "__main__":
     test(
         HandlerClass=PlainListingHTTPRequestHandler,
         ServerClass=DualStackServer,
-        protocol="HTTP/1.1",
+        protocol="HTTP/1.1", # permit keep-alive connections
         port=args.port,
         bind=args.bind,
     )
