@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <sys/types.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -28,10 +27,9 @@ int main() {
    if (HTTP_SUCCESS != http_get(sfd, "/", &fraction_links_resp)) {
       return EXIT_FAILURE;  
    }
-    write(1, response.data, response.size);
-    http_free(&response);
-  
+   write(1, fraction_links_resp.data, fraction_links_resp.size);
+   http_free(&fraction_links_resp);
 
-  close(sfd);
-  return EXIT_SUCCESS;
+   close(sfd);
+   return EXIT_SUCCESS;
 }

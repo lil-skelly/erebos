@@ -16,6 +16,7 @@ logging.basicConfig(
 
 BACKUP_FILENAME = ".erebos_bckp"
 
+
 def handle_args(parser: argparse.ArgumentParser):
     """Configure the given ArgumentParser"""
     parser.add_argument(
@@ -46,6 +47,7 @@ def handle_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--rm-backup", action="store_true", help="Remove the generated backup file"
     )
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
