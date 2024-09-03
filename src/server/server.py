@@ -40,23 +40,15 @@ class PlainListingHTTPRequestHandler(SimpleHTTPRequestHandler):
             return None
 
         file_list.sort(key=lambda a: a.lower())
-        r = []
-
-        try:
-            displaypath = urllib.parse.unquote(self.path, errors="surrogatepass")
-        except UnicodeDecodeError:
-            displaypath = urllib.parse.unquote(self.path)
-
-        displaypath = html.escape(displaypath, quote=False)
-
+        contents = []
+        
         enc = sys.getfilesystemencoding()
 
         for name in file_list:
-            fullname = os.path.join(path, name)
-            display_name = f"http://{self.headers['Host']}{self.path}{fullname}"
-            r.append(html.escape(display_name, quote=False))
+            display_name = f"http://{self.headers['Host']}{self.path}{name}"
+            contents.append(html.escape(display_name, quote=False))
 
-        encoded = "\n".join(r).encode(enc, "surrogateescape")
+        encoded = "\n".join(contents).encode(enc, "surrogateescape")
         f = io.BytesIO()
         f.write(encoded)
         f.seek(0)
