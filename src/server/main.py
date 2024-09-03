@@ -143,6 +143,7 @@ if __name__ == "__main__":
     test(
         HandlerClass=PlainListingHTTPRequestHandler,
         ServerClass=DualStackServer,
+        protocol="HTTP/1.1",
         port=args.port,
         bind=args.bind,
     )
