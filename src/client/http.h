@@ -3,6 +3,10 @@
 
 #include <stdlib.h>
 
+#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+
+#define HTTP_BUFFER_SIZE 1024
+
 // error codes
 #define HTTP_SUCCESS 0
 #define HTTP_SOCKET_ERR 1

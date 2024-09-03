@@ -6,12 +6,9 @@
 #include <string.h>
 #include <sys/socket.h>
 
-#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
-
-#define HTTP_BUFFER_SIZE 1024
-
 const char *CONTENT_LENGTH = "Content-Length: ";
-const char *GET_REQ_TEMPLATE = "GET %s HTTP/1.1\r\nConnection: keep-alive\r\n\r\n";
+const char *GET_REQ_TEMPLATE =
+    "GET %s HTTP/1.1\r\nConnection: keep-alive\r\n\r\n";
 
 int http_get(int sfd, const char *path, http_res_t *res) {
   char buf[HTTP_BUFFER_SIZE];
@@ -22,7 +19,7 @@ int http_get(int sfd, const char *path, http_res_t *res) {
 
   buf[HTTP_BUFFER_SIZE - 1] = 0; // ensure buf is null terminated
   
-  snprintf(buf, 1023, GET_REQ_TEMPLATE, path);
+  snprintf(buf, HTTP_BUFFER_SIZE-1, GET_REQ_TEMPLATE, path);
   send_request(sfd, buf);
 
   total_bytes = 0;
