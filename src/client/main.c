@@ -13,7 +13,7 @@
 int main() {
   struct addrinfo hints, *ainfo;
   int sfd; // socket file descriptor
-  http_res_t response;
+  http_res_t fraction_links_resp;
 
   setup_hints(&hints);
 
@@ -25,17 +25,13 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  // make multuple requests using the same connection
-  for (int i = 0; i < 10; ++i) {
-    if (HTTP_SUCCESS != http_get(sfd, "/hello", &response)) {
+   if (HTTP_SUCCESS != http_get(sfd, "/", &fraction_links_resp)) {
       return EXIT_FAILURE;  
-    }
+   }
     write(1, response.data, response.size);
     http_free(&response);
-  }
-
-  close(sfd);
   
 
+  close(sfd);
   return EXIT_SUCCESS;
 }
