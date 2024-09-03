@@ -53,7 +53,7 @@ class PlainListingHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         for name in file_list:
             fullname = os.path.join(path, name)
-            display_name = f"http://{self.headers["Host"]}{self.path}{fullname}"
+            display_name = f"http://{self.headers['Host']}{self.path}{fullname}"
             r.append(html.escape(display_name, quote=False))
 
         encoded = "\n".join(r).encode(enc, "surrogateescape")

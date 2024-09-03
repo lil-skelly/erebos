@@ -33,7 +33,6 @@ def handle_args(parser: argparse.ArgumentParser):
         default=os.getcwd(),
         help="serve this directory " "(default: current directory)",
     )
-
     parser.add_argument(
         "port",
         default=8000,
@@ -47,7 +46,6 @@ def handle_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--rm-backup", action="store_true", help="Remove the generated backup file"
     )
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
