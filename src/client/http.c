@@ -18,17 +18,21 @@ int http_get(const char *ip, const char *port, const char *path, http_res_t *res
   char buf[HTTP_BUFFER_SIZE];
   const char *status_code_start, *content_length_start, *body_start;
   int content_length, header_length, received_length, left_length;
+  int err;
 
   buf[HTTP_BUFFER_SIZE - 1] = 0; // ensure buf is null terminated
+  sfd = -1;
 
   setup_hints(&hints);
 
   if (h_getaddrinfo(ip, port, &hints, &ainfo) != 0) {
-    return HTTP_SOCKET_ERR;
+    err = HTTP_SOCKET_ERR;
+    goto cleanup;
   }
   sfd = create_sock_and_conn(ainfo);
   if (sfd == -1) {
-    return HTTP_SOCKET_ERR;
+    err = HTTP_SOCKET_ERR;
+    goto cleanup;
   }
   snprintf(buf, 1023, GET_REQ_TEMPLATE, path);
   send_request(sfd, buf);
@@ -36,7 +40,8 @@ int http_get(const char *ip, const char *port, const char *path, http_res_t *res
   recv_response(sfd, buf, HTTP_BUFFER_SIZE - 1);
 
   if (memcmp(buf, "HTTP", 4)) {
-    return HTTP_INVALID_RESPONSE;
+    err = HTTP_INVALID_RESPONSE;
+    goto cleanup;
   }
 
   status_code_start = strstr(buf, " ") + 1;
@@ -48,7 +53,8 @@ int http_get(const char *ip, const char *port, const char *path, http_res_t *res
   res->size = content_length;
   res->data = malloc(content_length);
   if (NULL == res->data) {
-    return HTTP_OOM;
+    err = HTTP_OOM;
+    goto cleanup;
   }
 
   body_start = strstr(buf, "\r\n\r\n") + 4;
@@ -62,7 +68,12 @@ int http_get(const char *ip, const char *port, const char *path, http_res_t *res
     recv_response(sfd, res->data + received_length, left_length);
   }
 
+  close(sfd);
   return HTTP_SUCCESS;
+
+cleanup:
+  if (sfd != -1) close(sfd);
+  return err;
 }
 
 void http_free(http_res_t *res) {
