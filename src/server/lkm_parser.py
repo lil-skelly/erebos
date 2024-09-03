@@ -12,13 +12,12 @@ class LKM:
     CHUNK_SIZE: int = 8192
     FRACTION_PATH_LEN = 16
     
-    def __init__(self, path: str, out_path: str, key: bytes, backup: bool=True) -> None:
+    def __init__(self, path: str, out_path: str, key: bytes, backup: Optional[str] = None) -> None:
         """Class to handle loading/preparation of a LKM object file to feed to the loader"""
         self._path: str = os.path.abspath(LKM.validate_source_path(path)) # Path to LKM object file
         
         self._out_path: str = os.path.abspath(LKM.validate_output_path(out_path)) # Path to store generated fractions
 
-        self.backup = backup # keep a backup of the generated filenames for cleanup
         self.backup_path = os.path.join(self._out_path, ".erebos_bckp")
         
         self._fractions: list[Fraction] = [] # Keep track of the fraction objects
@@ -94,7 +93,7 @@ class LKM:
         for fraction in self._fractions:
             self._write_fraction(fraction)
         
-        if self.backup:
+        if self.backup_path:
             self._save_backup()
 
     def _save_backup(self) -> None:
@@ -129,7 +128,7 @@ class LKM:
         
     def clean_fractions(self) -> None:
         logging.info("Cleaning fractions . . .")
-        if self.backup and not self._fraction_paths:
+        if self.backup_path and not self._fraction_paths:
             self._fraction_paths = self._load_backup()
         
         if not self._fraction_paths:

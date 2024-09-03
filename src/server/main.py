@@ -15,6 +15,8 @@ logging.basicConfig(
     level=logging.INFO
 )
 
+BACKUP_FILENAME = ".erebos_bckp"
+
 # ensure dual-stack is not disabled; ref #38907
 class DualStackServer(ThreadingHTTPServer):
     def server_bind(self):
@@ -38,16 +40,22 @@ if __name__ == "__main__":
                         help="bind to this port "
                              "(default: %(default)s)")
     parser.add_argument("--clean", type=bool, default=False, required=False, help="Clean generated fraction files")
+    parser.add_argument("--rm-backup", type=bool, default=False, help="Remove the generated backup file")
     
     args = parser.parse_args()
     
     key = secrets.token_bytes(32)
     logging.debug(f"Generated AES-256 key.")
     
-    lkm = LKM(args.lkm, args.directory, key)
-    
+    lkm = LKM(args.lkm, args.directory, key, BACKUP_FILENAME)
+
     if args.clean:
         lkm.clean_fractions()
+        if args.rm_backup: 
+            try:
+                os.remove(lkm.backup_path)
+            except FileNotFoundError:
+                logging.warning(f"Failed to remove backup: {lkm.backup_path}, file does not exist.")
         exit(0)
     else: 
         lkm.make_fractions()
