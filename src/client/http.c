@@ -64,3 +64,7 @@ int http_get(const char *ip, const char *port, const char *path, http_res_t *res
 
   return HTTP_SUCCESS;
 }
+
+void http_free(http_res_t *res) {
+    free(res->data);
+}

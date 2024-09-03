@@ -14,5 +14,7 @@ int main() {
   }
 
   write(1, response.data, response.size);
+  http_free(&response);
+
   return EXIT_SUCCESS;
 }
