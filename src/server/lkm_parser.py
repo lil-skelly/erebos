@@ -36,7 +36,7 @@ class LKM:
         """
         if self._buf_reader is None or self._buf_reader.closed:
             self._buf_reader = open(self._path, "rb")
-            logging.debug(f"[debug: open_reading_stream] Opened reading stream to {self._path}.")  
+            logging.debug(f"Opened reading stream to {self._path}.")  
             return
 
     def _make_fraction(self, index: int) -> None:
@@ -63,7 +63,7 @@ class LKM:
         self._fractions.append(fraction)
 
         # logging.debug(f"[debug: _make_fraction] Created Fraction object: {fraction} (crc: {fraction.crc})")
-        logging.debug(f"[debug: _make_fraction] Created fraction #{fraction.index}")
+        logging.debug(f"Created fraction #{fraction.index}")
         
     def make_fractions(self) -> None:
         """Iterate through the LKM object file specified in self._path and generate Fraction objects"""
@@ -87,7 +87,7 @@ class LKM:
             f.write(data)
                     
         self._fraction_paths.append(path)
-        logging.debug(f"[debug: _write_fraction] Wrote fraction #{fraction.index} to {path}")
+        logging.debug(f"Wrote fraction #{fraction.index} to {path}")
             
     def write_fractions(self) -> None:
         """Convert the fraction objects to pure bytes and write them in the appropriate directory (self._out)"""
@@ -123,22 +123,22 @@ class LKM:
         """Delete a fraction file"""
         try:
             os.remove(path)
-            logging.debug(f"[debug: _clean_fraction] Removed {path}.")
+            logging.debug(f"Removed {path}.")
         except FileNotFoundError:
             logging.debug(f"File not found: {path}")
         
     def clean_fractions(self) -> None:
-        logging.info("[info: clean_fractions] Cleaning fractions . . .")
+        logging.info("Cleaning fractions . . .")
         if self.backup and not self._fraction_paths:
             self._fraction_paths = self._load_backup()
         
         if not self._fraction_paths:
-            logging.error("[error: clean_fractions] No fraction paths detected.")
+            logging.error("No fraction paths detected.")
         for path in self._fraction_paths:
             self._clean_fraction(path)
         
         self._fraction_paths = []
-        logging.info("[info: clean_fractions] Done.")
+        logging.info("Done.")
             
     def do_aes_operation(self, data: bytes, op: bool) -> bytes:
         """Perform an AES-256 operation on given data (encryption [op=True]/decryption [op=False])"""
@@ -155,10 +155,10 @@ class LKM:
         if isinstance(self._buf_reader, io.BufferedReader):
             self._buf_reader.close()
             self._buf_reader = None
-            logging.debug(f"[debug: _close_stream] Closed stream to {self._path}.")
+            logging.debug(f"Closed stream to {self._path}.")
             return
         
-        logging.debug(f"[debug: _close_reader] No stream was open.")
+        logging.debug(f"No stream was open.")
 
     @staticmethod
     def validate_key(key: bytes) -> bytes:

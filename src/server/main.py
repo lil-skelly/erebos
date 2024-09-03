@@ -10,8 +10,10 @@ import secrets
 import socket
 from lkm_parser import LKM
 
-logging.basicConfig(level=logging.INFO)
-
+logging.basicConfig(
+    format='[%(levelname)s: %(funcName)s] %(message)s',
+    level=logging.INFO
+)
 
 # ensure dual-stack is not disabled; ref #38907
 class DualStackServer(ThreadingHTTPServer):
@@ -40,7 +42,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     key = secrets.token_bytes(32)
-    logging.debug(f"[info] Generated AES-256 key.")
+    logging.debug(f"Generated AES-256 key.")
     
     lkm = LKM(args.lkm, args.directory, key)
     
