@@ -10,7 +10,7 @@ import secrets
 import socket
 from lkm_parser import LKM
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 
 # ensure dual-stack is not disabled; ref #38907
@@ -35,19 +35,24 @@ if __name__ == "__main__":
     parser.add_argument("port", default=8000, type=int, nargs="?",
                         help="bind to this port "
                              "(default: %(default)s)")
+    parser.add_argument("--clean", type=bool, default=False, required=False, help="Clean generated fraction files")
+    
     args = parser.parse_args()
     
-    handler_class = SimpleHTTPRequestHandler
-
     key = secrets.token_bytes(32)
-    logging.info(f"[info] Generated AES-256 key: {key}")
+    logging.debug(f"[info] Generated AES-256 key.")
     
     lkm = LKM(args.lkm, args.directory, key)
-    lkm.open_reading_stream() # not really required
-    lkm._make_fraction(1)
     
-    
+    if args.clean:
+        lkm.clean_fractions()
+        exit(0)
+    else: 
+        lkm.make_fractions()
+        lkm.write_fractions()
+        
     # Stage fractions over HTTP
+    handler_class = SimpleHTTPRequestHandler
     test(
         HandlerClass=handler_class,
         ServerClass=DualStackServer,
