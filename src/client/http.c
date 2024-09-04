@@ -71,6 +71,14 @@ int http_post(int sfd,const char* path,const char *host,const char *content_type
 return HTTP_SUCCESS;
 }
 
+/* Log a http_res_t */
+void print_http_res(const http_res_t res) {
+  printf("--[ STATUS CODE: %i ]--\n", res.status_code);
+  printf("--[ REQUEST ]--\n%s\n--[ REQUEST ]--\n", res.request);
+  printf("%s\n", res.data);
+  puts("--[ END ]--");
+}
+
 int http_get(int sfd, const char *path, http_res_t *res) {
   char request_buf[HTTP_BUFFER_SIZE]; // use separate buffer for the request
   char buf[HTTP_BUFFER_SIZE];

@@ -13,7 +13,7 @@
 #define HTTP_INVALID_RESPONSE 2
 #define HTTP_OOM 3
 
-#define HTTP_VERBOSE 2
+#define HTTP_VERBOSE 1
 
 typedef struct {
     int status_code;

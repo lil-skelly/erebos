@@ -4,21 +4,31 @@
 
 /* Wrapper for getaddrinfo, handles error */
 int h_getaddrinfo(const char *ip, const char *port, struct addrinfo *hints,
-                  struct addrinfo **res) {
-  int error;
-  error = getaddrinfo(ip, port, hints, res);
+                  struct addrinfo **ainfo) {
+  int res;
+  res = getaddrinfo(ip, port, hints, ainfo);
 
-  if (error != 0) {
-    fprintf(stderr, "Error getting addrinfo: %s\n", gai_strerror(error));
-    return error;
+  if (res != 0) {
+    fprintf(stderr, "Error: getaddrinfo: %s\n", gai_strerror(res));
+    return res;
   }
   return 0;
 }
 
+int h_getnameinfo(const struct addrinfo *ainfo, char buffer[], size_t buffer_size) {
+    int res;
+    res = getnameinfo(ainfo->ai_addr, ainfo->ai_addrlen, buffer, buffer_size, NULL, 0, 0);
+    if (res != 0) {
+        fprintf(stderr, "Error: getnameinfo: %s\n", gai_strerror(res));
+        return res;
+    }
+    return 0;
+}
+
 /* Create a socket and return the socket file descriptor */
-int create_socket(struct addrinfo *res) {
+int create_socket(struct addrinfo *ainfo) {
   int sfd;
-  sfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+  sfd = socket(ainfo->ai_family, ainfo->ai_socktype, ainfo->ai_protocol);
   if (sfd == -1) {
     perror("Error creating socket");
     return -1;
@@ -58,8 +68,8 @@ void setup_hints(struct addrinfo *hints) {
 }
 
 /* Connect the socket to the server */
-int sock_connect(int sfd, struct addrinfo *res) {
-  if (connect(sfd, res->ai_addr, res->ai_addrlen) == -1) {
+int sock_connect(int sfd, struct addrinfo *ainfo) {
+  if (connect(sfd, ainfo->ai_addr, ainfo->ai_addrlen) == -1) {
     perror("Error connecting socket");
     close(sfd);
     return -1;
