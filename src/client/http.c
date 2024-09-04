@@ -129,3 +129,33 @@ void http_free(http_res_t *res) {
     res->size = 0;
     res->status_code = 0;
 }
+
+// if this dont work DeLuks is to blame :)
+int http_split_data(char* data, char* data_arr[], int maxlines) {
+  int   lines_read  = 0;
+  char* line        = "";
+  char* tmp_str     = "";
+
+  tmp_str = strdup(data);
+  if (tmp_str == NULL) {
+    fprintf(stderr, "[x] strdup failed to allocate memory\n");
+    return -1;
+  }
+
+  line = strtok(tmp_str, "\n");
+  while (line != NULL && lines_read < maxlines) {
+    data_arr[lines_read] = malloc(strlen(line)+1);
+    if (data_arr[lines_read] == NULL) {
+      fprintf(stderr, "[x] malloc failed to allocate memory\n");
+      free(tmp_str);
+      return -1;
+    }
+
+    strcpy(data_arr[lines_read], line);
+    line = strtok(NULL, "\n");
+    lines_read++;
+  }
+
+  free(tmp_str);
+  return lines_read;
+}

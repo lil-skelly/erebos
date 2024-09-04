@@ -22,7 +22,8 @@ typedef struct {
     size_t size;
 } http_res_t;
 
-int http_get(int sfd, const char *path, http_res_t *res);
-void http_free(http_res_t *res);
-int http_download_data_to_file(int sfd, const char *path, const char *f_path);
+int   http_get(int sfd, const char *path, http_res_t *res);
+void  http_free(http_res_t *res);
+int   http_download_data_to_file(int sfd, const char *path, const char *f_path);
+int   http_split_data(char* data, char* data_arr[], int maxlines);
 #endif
