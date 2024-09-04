@@ -30,14 +30,14 @@ int main() {
     return EXIT_FAILURE;
   }
 
-   if (HTTP_SUCCESS != http_get(sfd, "/", &fraction_links_resp)) {
-      return EXIT_FAILURE;  
-   }
-   write(1, fraction_links_resp.data, fraction_links_resp.size);
-   
-   http_free(&fraction_links_resp);
-   
-   close(sfd);
-   freeaddrinfo(ainfo);
-   return EXIT_SUCCESS;
+  if (HTTP_SUCCESS != http_get(sfd, "/", &fraction_links_resp)) {
+    return EXIT_FAILURE;
+  }
+  write(1, fraction_links_resp.data, fraction_links_resp.size);
+
+  http_free(&fraction_links_resp);
+
+  close(sfd);
+  freeaddrinfo(ainfo);
+  return EXIT_SUCCESS;
 }
