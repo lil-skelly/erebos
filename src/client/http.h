@@ -13,13 +13,18 @@
 #define HTTP_INVALID_RESPONSE 2
 #define HTTP_OOM 3
 
+#define HTTP_VERBOSE 2
+
 typedef struct {
     int status_code;
+    char *request; // The actual request (for book keeping)
     char *data;
     size_t size;
 } http_res_t;
 
-int http_get(int sfd, const char *path, http_res_t *res);
-void http_free(http_res_t *res);
-
+int   http_get(int sfd, const char *path, http_res_t *res);
+void  http_free(http_res_t *res);
+int   http_download_data_to_file(int sfd, const char *path, const char *f_path);
+int   http_split_data(char* data, char* data_arr[], int maxlines);
+int   http_post(int sfd,const char* path,const char *host,const char *content_type, const char* parameters, http_res_t *res);
 #endif
