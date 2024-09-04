@@ -22,40 +22,51 @@ void print_http_res(const http_res_t res) {
   puts("--[ END ]--");
 }
 
-int http_post(int sfd,const char* path,const char *host,const char *content_type, const char* parameters){
+int http_post(int sfd,const char* path,const char *host,const char *content_type, const char* parameters, http_res_t *res){
 
+  ssize_t req;
   char buffer[HTTP_BUFFER_SIZE];
   char *http_str;
-  ssize_t req;
+  const char *content_length_start, *status_code_start, *body_start;
+  long content_length, header_length, received_length;
+
+
   buffer[HTTP_BUFFER_SIZE -1 ] = '\0';
 
   snprintf(buffer,1023,POST_REQ_TEMPLATE,path,host,content_type,strlen(parameters),parameters);
+
+  res->request = buffer;
 
   req = send_request(sfd,buffer);
   if(req < 0){
      return HTTP_SOCKET_ERR;
   }
-  printf("\n---[REQUEST]---\n%s", buffer);
   ssize_t recv_bytes = recv_response(sfd,buffer,sizeof(buffer));
-
-  puts("[!] Receiving POST response:");
   if(recv_bytes < 0){
     return HTTP_INVALID_RESPONSE;
   }
 
-  printf("\n---[RESPONSE]---\n%s\n", buffer);
+    status_code_start = strstr(buffer, " ") + 1;
+  res->status_code = strtol(status_code_start, NULL, 10);
 
-  // CHECK HTTP RESPONSE CODE
+  content_length_start = strstr(buffer, CONTENT_LENGTH) + strlen(CONTENT_LENGTH);
+  content_length = strtol(content_length_start, NULL, 10);
 
-  http_str = strtok(buffer, "\r\n");
-  http_str = strstr(http_str, " ");
-  http_str = strtok(http_str, " ");
-
-  int http_code = atoi(http_str);
-  if(http_code != 200){
-    puts("Invalid HTTP Code");
-    return -1;
+  res->size = content_length;
+  res->data = malloc(content_length);
+  if (NULL == res->data) {
+    return HTTP_OOM;
   }
+
+  body_start = strstr(buffer, "\r\n\r\n") + 4;
+  header_length = body_start - buffer;
+  received_length = MIN(recv_bytes - header_length, content_length);
+  memcpy(res->data, body_start, received_length);
+
+
+
+  if (HTTP_VERBOSE) puts("Parsed response");
+  if (HTTP_VERBOSE > 1) print_http_res(*res);
 
 return HTTP_SUCCESS;
 }

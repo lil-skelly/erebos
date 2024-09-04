@@ -27,7 +27,7 @@
 int main() {
   struct addrinfo hints, *ainfo;
   int sfd; // socket file descriptor
-
+  http_res_t res;
   char hostname[NI_MAXHOST];
 
   setup_hints(&hints);
@@ -44,8 +44,10 @@ int main() {
   if (sfd == -1) {
     return EXIT_FAILURE;
   }
+  http_get(sfd, "/", &res);
 
-  http_post(sfd,hostname,"/","text/plain","isDownload=yes");
+
+  http_post(sfd,SERVER_IP,"/","text/plain","isDownload=yes",&res);
   close(sfd);
   freeaddrinfo(ainfo);
   return EXIT_SUCCESS;
