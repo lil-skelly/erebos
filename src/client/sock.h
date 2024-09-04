@@ -17,5 +17,5 @@ int sock_connect(int sfd, struct addrinfo *res);
 int create_socket(struct addrinfo *res);
 int h_getaddrinfo(const char *ip, const char *port, struct addrinfo *hints,
                   struct addrinfo **res);
-
+int h_getnameinfo(const struct addrinfo *ainfo, char buffer[], size_t buffer_size); 
 #endif // SOCK_H

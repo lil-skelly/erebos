@@ -13,9 +13,8 @@ const char *GET_REQ_TEMPLATE =
 int http_get(int sfd, const char *path, http_res_t *res) {
   char buf[HTTP_BUFFER_SIZE];
   const char *status_code_start, *content_length_start, *body_start;
-  size_t total_bytes;
   int bytes_read;
-  size_t content_length, header_length, received_length, left_length;
+  long total_bytes, content_length, header_length, received_length, left_length;
 
   buf[HTTP_BUFFER_SIZE - 1] = 0; // ensure buf is null terminated
   
@@ -56,7 +55,6 @@ int http_get(int sfd, const char *path, http_res_t *res) {
   received_length = MIN(total_bytes - header_length, content_length);
   memcpy(res->data, body_start, received_length);
 
-  if (total_bytes == header_length + content_length) puts("ah");
   if (header_length + content_length > total_bytes) {
     left_length = content_length - received_length;
     recv_response(sfd, res->data + received_length, left_length);
