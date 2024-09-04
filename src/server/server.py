@@ -44,10 +44,10 @@ class PlainListingHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         enc = sys.getfilesystemencoding()
 
-        server_addr = self.server.server_address
-        host, port = server_addr
+        _, port = self.server.server_address
+        # From now on we will depend on the Host header
         for name in file_list:
-            display_name = f"http://{host}:{port}{self.path}{name}"
+            display_name = f"http://{self.headers['Host']}:{port}{self.path}{name}"
             contents.append(html.escape(display_name, quote=False))
 
         encoded = "\n".join(contents).encode(enc, "surrogateescape")
