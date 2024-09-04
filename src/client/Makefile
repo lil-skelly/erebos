@@ -7,7 +7,7 @@ all:
 	$(CC) $(SRC) -o $(OUT) $(FLAGS)
 
 debug:
-	$(CC) $(SRC) -o $(OUT) $(FLAGS) -g
+	$(CC) $(SRC) -o $(OUT) $(FLAGS) -g -m32
 
 clean:
 	rm $(OUT)

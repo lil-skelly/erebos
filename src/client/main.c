@@ -17,7 +17,7 @@
 //   if (error != HTTP_SUCCESS) {
 //     return error;
 //   }
-  
+
 
 
 //   http_free(&res);
@@ -45,8 +45,7 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  http_download_data_to_file(sfd, "/", "resp.txt");
-
+  http_post(sfd,hostname,"/","text/plain","isDownload=yes");
   close(sfd);
   freeaddrinfo(ainfo);
   return EXIT_SUCCESS;

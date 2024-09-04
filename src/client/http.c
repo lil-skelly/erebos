@@ -12,13 +12,52 @@
 const char *CONTENT_LENGTH = "Content-Length: ";
 const char *GET_REQ_TEMPLATE =
     "GET %s HTTP/1.1\r\nConnection: keep-alive\r\n\r\n";
-
+const char *POST_REQ_TEMPLATE =
+    "POST %s HTTP/1.1\r\nHost: %s\r\nContent-Type: %s\r\nContent-Length: %d\r\n%s\r\n\r\n";
 /* Log a http_res_t */
 void print_http_res(const http_res_t res) {
   printf("--[ STATUS CODE: %i ]--\n", res.status_code);
-  printf("--[ REQUEST ]--\n%s\n--[ REQUEST ]--\n", res.request);
+  printf("--[ REQUEST ]--\n%s\n--[ RESPONSE ]--\n", res.request);
   printf("%s\n", res.data);
   puts("--[ END ]--");
+}
+
+int http_post(int sfd,const char* path,const char *host,const char *content_type, const char* parameters){
+
+  char buffer[HTTP_BUFFER_SIZE];
+  char *http_str;
+  ssize_t req;
+  buffer[HTTP_BUFFER_SIZE -1 ] = '\0';
+
+  snprintf(buffer,1023,POST_REQ_TEMPLATE,path,host,content_type,strlen(parameters),parameters);
+
+  req = send_request(sfd,buffer);
+  if(req < 0){
+     return HTTP_SOCKET_ERR;
+  }
+  printf("\n---[REQUEST]---\n%s", buffer);
+  ssize_t recv_bytes = recv_response(sfd,buffer,sizeof(buffer));
+
+  puts("[!] Receiving POST response:");
+  if(recv_bytes < 0){
+    return HTTP_INVALID_RESPONSE;
+  }
+
+  printf("\n---[RESPONSE]---\n%s\n", buffer);
+
+  // CHECK HTTP RESPONSE CODE
+
+  http_str = strtok(buffer, "\r\n");
+  http_str = strstr(http_str, " ");
+  http_str = strtok(http_str, " ");
+
+  int http_code = atoi(http_str);
+  if(http_code != 200){
+    puts("Invalid HTTP Code");
+    return -1;
+  }
+
+return HTTP_SUCCESS;
 }
 
 int http_get(int sfd, const char *path, http_res_t *res) {
@@ -36,7 +75,7 @@ int http_get(int sfd, const char *path, http_res_t *res) {
   // send request
   snprintf(request_buf, HTTP_BUFFER_SIZE-1, GET_REQ_TEMPLATE, path);
   send_request(sfd, request_buf);
-  
+
   res->request = request_buf;
   if (HTTP_VERBOSE) puts("Sent GET request");
 
@@ -110,7 +149,7 @@ int http_download_data_to_file(int sfd, const char *path, const char *f_path) {
     perror("Error: Failed to write data to file");
     fclose(file);
     http_free(&res);
-    return -2;      
+    return -2;
   }
 
   if (fclose(file) != 0) {
