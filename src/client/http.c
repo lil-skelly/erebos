@@ -8,9 +8,9 @@
 
 const char *CONTENT_LENGTH = "Content-Length: ";
 const char *GET_REQ_TEMPLATE =
-    "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: keep-alive\r\n\r\n";
+    "GET %s HTTP/1.1\r\nConnection: keep-alive\r\n\r\n";
 
-int http_get(int sfd, const char *path, const char hostname[], http_res_t *res) {
+int http_get(int sfd, const char *path, http_res_t *res) {
   char buf[HTTP_BUFFER_SIZE];
   const char *status_code_start, *content_length_start, *body_start;
   int bytes_read;
@@ -18,7 +18,7 @@ int http_get(int sfd, const char *path, const char hostname[], http_res_t *res) 
 
   buf[HTTP_BUFFER_SIZE - 1] = 0; // ensure buf is null terminated
   
-  snprintf(buf, HTTP_BUFFER_SIZE-1, GET_REQ_TEMPLATE, path, hostname);
+  snprintf(buf, HTTP_BUFFER_SIZE-1, GET_REQ_TEMPLATE, path);
   send_request(sfd, buf);
 
   total_bytes = 0;
