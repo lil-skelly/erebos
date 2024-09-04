@@ -9,10 +9,25 @@
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT "8000"
 
+// int get_fraction_links(int sfd, const char *path, char **fraction_links) {
+//   http_res_t res;
+//   int error;
+
+//   error = http_get(sfd, "/", &res);
+//   if (error != HTTP_SUCCESS) {
+//     return error;
+//   }
+  
+
+
+//   http_free(&res);
+//   return 0;
+// }
+
 int main() {
   struct addrinfo hints, *ainfo;
   int sfd; // socket file descriptor
-  http_res_t fraction_links_resp;
+
   char hostname[NI_MAXHOST];
 
   setup_hints(&hints);
@@ -30,12 +45,7 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  if (HTTP_SUCCESS != http_get(sfd, "/", &fraction_links_resp)) {
-    return EXIT_FAILURE;
-  }
-  write(1, fraction_links_resp.data, fraction_links_resp.size);
-
-  http_free(&fraction_links_resp);
+  http_download_data_to_file(sfd, "/", "resp.txt");
 
   close(sfd);
   freeaddrinfo(ainfo);
