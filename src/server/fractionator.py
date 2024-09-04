@@ -1,6 +1,6 @@
 import os
 import io
-from typing import Optional
+from typing import Callable, Optional
 import logging
 import secrets
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -61,23 +61,14 @@ class Fractionator:
     FRACTION_PATH_LEN = 16
 
     def __init__(
-        self, path: str, out_path: str, key: bytes, backup: str = ".erebos_bckp"
+        self, path: str, out_path: str, key: bytes
     ) -> None:
         """Class to handle loading/preparation of a Fractionator object file to feed to the loader"""
-        self._path: str = os.path.abspath(
-            Fractionator.validate_source_path(path)
-        )  # Path to Fractionator object file
-
-        self._out_path: str = os.path.abspath(
-            Fractionator.validate_output_path(out_path)
-        )  # Path to store generated fractions
-
-        self.backup_path = os.path.join(self._out_path, backup)
-
+        self._path: str = path # Path to LKM object file
+        self._out_path: str = out_path # Path to store generated fractions
+        
         self._fractions: list[Fraction] = []  # Keep track of the fraction objects
-        self._fraction_paths: list[str] = (
-            []
-        )  # Book-keeping of fraction filenames for cleanup
+        self.fraction_paths: list[str] = []  # Book-keeping of fraction filenames for cleanup
         # I/O
         self._buf_reader: Optional[io.BufferedReader] = None
         # AES-256 related instance attributes
@@ -105,22 +96,18 @@ class Fractionator:
         data = self._buf_reader.read(
             Fractionator.CHUNK_SIZE
         )  # don't use peek, as it does not advance the position in the file
-        # logging.debug("[debug: _make_fraction] Read chunk from stream.")
-
+        
         # Generate an IV and encrypt the chunk
         self._iv = secrets.token_bytes(
             16
         )  # initialization vector for AES-256 encryption
         encrypted_data = self.do_aes_operation(data, True)  # encrypt chunk
-        # logging.info("[info: _make_fraction] Encrypted chunk data using AES-256")
 
         # Create a fraction instance and add it to self._fractions
         fraction = Fraction(
             magic=Fractionator.MAGIC, index=index, iv=self._iv, data=encrypted_data
         )
         self._fractions.append(fraction)
-
-        # logging.debug(f"[debug: _make_fraction] Created Fraction object: {fraction} (crc: {fraction.crc})")
         logging.debug(f"Created fraction #{fraction.index}")
 
     def make_fractions(self) -> None:
@@ -134,7 +121,6 @@ class Fractionator:
 
     def _write_fraction(self, fraction: Fraction):
         """Write a fraction to a file"""
-        os.makedirs(self._out_path, exist_ok=True)
         path = os.path.join(
             self._out_path, utils.random_string(Fractionator.FRACTION_PATH_LEN)
         )
@@ -146,36 +132,34 @@ class Fractionator:
             f.write(header_data)
             f.write(data)
 
-        self._fraction_paths.append(path)
+        self.fraction_paths.append(path)
         logging.debug(f"Wrote fraction #{fraction.index} to {path}")
 
     def write_fractions(self) -> None:
         """Convert the fraction objects to pure bytes and write them in the appropriate directory (self._out)"""
+        os.makedirs(self._out_path, exist_ok=True) # enusre backup directory exists
         for fraction in self._fractions:
             self._write_fraction(fraction)
 
-        if self.backup_path:
-            self._save_backup()
-
-    def _save_backup(self) -> None:
+    def save_backup(self, backup_path: str):
         """Save fraction paths to a backup file."""
         try:
-            with open(self.backup_path, "a") as f:
-                for path in self._fraction_paths:
+            with open(backup_path, "a") as f:
+                for path in self.fraction_paths:
                     f.write(path + "\n")  # Ensure each path is written on a new line
-            logging.debug(f"Backup saved at {self.backup_path}.")
+            logging.debug(f"Backup saved at {backup_path}.")
         except OSError as e:
             logging.error(f"Failed to save backup: {e}")
 
-    def _load_backup(self) -> list[str]:
-        """Load fraction paths from the backup file."""
+    def load_backup(self, backup_path: str):
+        """Load fraction paths from the backup file and initialize self.fraction_paths."""
         try:
-            with open(self.backup_path, "r") as f:
-                paths = [line.strip() for line in f]
+            with open(backup_path, "r") as f:
+                self.fraction_paths = [line.strip() for line in f]
             logging.debug(
-                f"[debug: _load_backup] Loaded {len(paths)} paths from backup."
+                f"[debug: _load_backup] Loaded {len(self.fraction_paths)} paths from backup."
             )
-            return paths
+            
         except OSError as e:
             logging.error(f"[error: _load_backup] Failed to load backup: {e}")
             return []
@@ -190,15 +174,14 @@ class Fractionator:
 
     def clean_fractions(self) -> None:
         logging.info("Cleaning fractions . . .")
-        if self.backup_path and not self._fraction_paths:
-            self._fraction_paths = self._load_backup()
-
-        if not self._fraction_paths:
+        if not self.fraction_paths:
             logging.error("No fraction paths detected.")
-        for path in self._fraction_paths:
+            return
+        
+        for path in self.fraction_paths:
             self._clean_fraction(path)
 
-        self._fraction_paths = []
+        self.fraction_paths = []
         logging.info("Done.")
 
     def do_aes_operation(self, data: bytes, op: bool) -> bytes:
@@ -211,7 +194,7 @@ class Fractionator:
 
         return operator.update(data) + operator.finalize()
 
-    def _close_stream(self) -> None:
+    def close_stream(self) -> None:
         """Closes the open stream to self._path and resets self._buf_rw_stream"""
         if isinstance(self._buf_reader, io.BufferedReader):
             self._buf_reader.close()
@@ -230,31 +213,5 @@ class Fractionator:
             )
         return key
 
-    @staticmethod
-    def validate_file_ext(path: str, extension: str) -> str:
-        """Checks if path is a file and ends with extension"""
-        if not path.endswith(".ko") or not os.path.isfile(path):
-            raise ValueError(f"{path} is not a valid file.")
-
-        return path
-
-    @staticmethod
-    def validate_source_path(path: str) -> str:
-        """Checks if path is a file with a .ko extension"""
-        if not os.path.exists(path):
-            raise FileNotFoundError("Path not found.")
-        path = Fractionator.validate_file_ext(path, ".ko")
-
-        return path
-
-    @staticmethod
-    def validate_output_path(path: str) -> str:
-        """Checks if path exists and is a directory. it will create a new directory otherwise"""
-        os.makedirs(path, exist_ok=True)
-        if not os.path.isdir(path):
-            raise ValueError(f"Path is not a directory ({path}).")
-
-        return path
-
-    def __del__(self) -> None:
-        self._close_stream()
+    def __del__(self):
+        self.close_stream()

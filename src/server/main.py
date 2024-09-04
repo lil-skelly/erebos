@@ -3,9 +3,12 @@ Erebos server, accountable for preparing and staging the chunks of the given obj
 """
 
 import argparse
+import contextlib
+from http.server import ThreadingHTTPServer
 import logging
-import os
+import os, sys
 import secrets
+from socket import IPPROTO_IPV6, IPV6_V6ONLY
 
 from fractionator import Fractionator
 from server import start_server
@@ -20,7 +23,7 @@ BACKUP_FILENAME = ".erebos_bckp"
 def handle_args(parser: argparse.ArgumentParser):
     """Configure the given ArgumentParser"""
     parser.add_argument(
-        "--file", type=str, help="Path to LKM object file to use", required=True
+        "--file", type=str, help="Path to LKM object file to use"
     )
     parser.add_argument(
         "-b",
@@ -29,10 +32,10 @@ def handle_args(parser: argparse.ArgumentParser):
         help="bind to this address " "(default: all interfaces)",
     )
     parser.add_argument(
-        "-d",
-        "--directory",
+        "-o",
+        "--output",
         default=os.getcwd(),
-        help="serve this directory " "(default: current directory)",
+        help="Output directory" "(default: current directory)",
     )
     parser.add_argument(
         "port",
@@ -53,25 +56,54 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     handle_args(parser)
     args = parser.parse_args()
+    
+    # ensure dual-stack is not disabled; ref #38907
+    class DualStackServer(ThreadingHTTPServer):
+        def server_bind(self):
+            # suppress exception when protocol is IPv4
+            with contextlib.suppress(Exception):
+                self.socket.setsockopt(IPPROTO_IPV6, IPV6_V6ONLY, 0)
+            return super().server_bind()
+
+        def finish_request(self, request, client_address):
+            self.RequestHandlerClass(request, client_address, self,
+                                        directory=args.output)
 
     key = secrets.token_bytes(32)
     logging.debug(f"Generated AES-256 key.")
 
-    lkm = Fractionator(args.file, args.directory, key, BACKUP_FILENAME)
-
+    out_path = os.path.abspath(args.output)
+    backup_path = os.path.join(out_path, BACKUP_FILENAME) # backup file path
+    
+    
+    lkm = Fractionator("", out_path, key)
+    # Clean mode
     if args.clean:
+        lkm.load_backup(backup_path)
         lkm.clean_fractions()
-        if args.rm_backup:
-            try:
-                os.remove(lkm.backup_path)
-            except FileNotFoundError:
-                logging.warning(
-                    f"Failed to remove backup: {lkm.backup_path}, file does not exist."
-                )
+
+        try:
+            os.remove(backup_path)
+        except FileNotFoundError:
+            logging.critical(f"{backup_path} is not a valid file.")
+            exit(1)
         exit(0)
+        
     else:
+        if not args.file:
+            raise ValueError("The --file flag is required for this mode.")
+        file_path = os.path.abspath(args.file)
+        _, ext = os.path.splitext(file_path)
+        if ext != ".ko":
+            raise ValueError(f"Invalid file type")
+        # TODO: Implement path validation
+        lkm._path = args.file
         lkm.make_fractions()
         lkm.write_fractions()
+        lkm.save_backup(backup_path)
+        
+    
+    # lkm.close_stream()
 
     # Stage fractions over HTTP
-    start_server(args.bind, args.port)
+    start_server(DualStackServer, args.port, args.bind)
