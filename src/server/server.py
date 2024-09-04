@@ -3,19 +3,9 @@ import sys
 import urllib
 import contextlib
 import html
-from http.server import HTTPStatus, SimpleHTTPRequestHandler, ThreadingHTTPServer, test
+from http.server import HTTPStatus, SimpleHTTPRequestHandler, test
 import io
 import os
-
-
-# ensure dual-stack is not disabled; ref #38907
-class DualStackServer(ThreadingHTTPServer):
-    def server_bind(self):
-        # suppress exception when protocol is IPv4
-        with contextlib.suppress(Exception):
-            self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
-        return super().server_bind()
-
 
 class PlainListingHTTPRequestHandler(SimpleHTTPRequestHandler):
     """Lists the links to the files in the given directory in plain text"""
@@ -61,10 +51,10 @@ class PlainListingHTTPRequestHandler(SimpleHTTPRequestHandler):
         return f
 
 
-def start_server(bind, port):
+def start_server(ServerClass, port: int=8000, bind=None):
     test(
         HandlerClass=PlainListingHTTPRequestHandler,
-        ServerClass=DualStackServer,
+        ServerClass=ServerClass,
         protocol="HTTP/1.1",  # permit keep-alive connections
         port=port,
         bind=bind,
