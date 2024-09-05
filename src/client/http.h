@@ -26,7 +26,10 @@ void  http_free(http_res_t *res);
 void  http_init(http_res_t *res);
 
 int   http_get(int sfd, const char *path, http_res_t *res);
+int   http_post(int sfd,const char* path,const char *host,const char *content_type, const char* parameters, http_res_t *res);
+
 int   http_download_data_to_file(int sfd, const char *path, const char *f_path);
 long  parse_http_status_code(const char *buf);
 long  parse_http_content_length(const char *buf);
+  
 #endif // HTTP_H

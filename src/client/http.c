@@ -179,7 +179,7 @@ int http_download_data_to_file(int sfd, const char *path, const char *f_path) {
     perror("Error: Failed to write data to file");
     fclose(file);
     http_free(&res);
-    return -2;
+    return -2;      
   }
 
   if (fclose(file) != 0) {
