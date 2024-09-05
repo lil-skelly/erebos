@@ -13,7 +13,7 @@
 #define HTTP_INVALID_RESPONSE 2
 #define HTTP_OOM 3
 
-#define HTTP_VERBOSE 1
+#define HTTP_VERBOSE 2
 
 typedef struct {
     int status_code;
@@ -22,7 +22,11 @@ typedef struct {
     size_t size;
 } http_res_t;
 
-int   http_get(int sfd, const char *path, http_res_t *res);
 void  http_free(http_res_t *res);
+void  http_init(http_res_t *res);
+
+int   http_get(int sfd, const char *path, http_res_t *res);
 int   http_download_data_to_file(int sfd, const char *path, const char *f_path);
-#endif
+long  parse_http_status_code(const char *buf);
+long  parse_http_content_length(const char *buf);
+#endif // HTTP_H

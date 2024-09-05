@@ -1,9 +1,9 @@
-#include <sys/types.h>
 #include <stdlib.h>
+#include <sys/types.h>
 #include <unistd.h>
 
-#include "sock.h"
 #include "http.h"
+#include "sock.h"
 #include "utils.h"
 
 /* Networking constants */
@@ -31,9 +31,9 @@ int main() {
   if (sfd == -1) {
     return EXIT_FAILURE;
   }
-  
+
   /* Get the fraction links */
-  // Request index page of server
+  // http_init(&http_fraction_res);
   if (http_get(sfd, "/", &http_fraction_res) != HTTP_SUCCESS) {
     return EXIT_FAILURE;
   }
@@ -43,30 +43,34 @@ int main() {
   // Allocate memory for fraction links
   char **fraction_links = malloc(num_links * sizeof(char *));
   if (fraction_links == NULL) {
-      fprintf(stderr, "malloc failed to allocate memory for fraction links\n");
-      close(sfd);
-      return EXIT_FAILURE;
+    fprintf(stderr, "malloc failed to allocate memory for fraction links\n");
+    close(sfd);
+    http_free(&http_fraction_res);
+    return EXIT_FAILURE;
   }
 
-  // Split the response data into lines 
-  int lines_read = split_fraction_links(http_fraction_res.data, fraction_links, num_links);
+  // Split the response data into lines
+  int lines_read =
+      split_fraction_links(http_fraction_res.data, fraction_links, num_links);
   if (lines_read < 0) {
-      free(fraction_links);
-      close(sfd);
-      return EXIT_FAILURE;
+    http_free(&http_fraction_res);
+    free(fraction_links);
+    close(sfd);
+    return EXIT_FAILURE;
   }
 
   // Print the fraction links
   // TODO: Download each link to a file
   for (int i = 0; i < lines_read; i++) {
-      printf("%s\n", fraction_links[i]);
-      free(fraction_links[i]); // Free allocated memory for each line
+    printf("%s\n", fraction_links[i]);
+    free(fraction_links[i]); // Free allocated memory for each line
   }
 
-  // Free the array of pointers
+  /* Cleanup */
+  freeaddrinfo(ainfo);
+  close(sfd);
+  http_free(&http_fraction_res);
   free(fraction_links);
 
-  close(sfd);
-  freeaddrinfo(ainfo);
   return EXIT_SUCCESS;
 }
