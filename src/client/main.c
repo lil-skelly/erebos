@@ -14,7 +14,7 @@ int main() {
   struct addrinfo hints, *ainfo;
   int sfd; // socket file descriptor
   char hostname[NI_MAXHOST];
-  http_res_t http_fraction_res;
+  http_res_t http_fraction_res, res1;
 
   /* Setup socket and initiate connection with the server */
   setup_hints(&hints);
@@ -31,7 +31,7 @@ int main() {
   if (sfd == -1) {
     return EXIT_FAILURE;
   }
-  
+
   /* Get the fraction links */
   // Request index page of server
   if (http_get(sfd, "/", &http_fraction_res) != HTTP_SUCCESS) {
@@ -48,7 +48,7 @@ int main() {
       return EXIT_FAILURE;
   }
 
-  // Split the response data into lines 
+  // Split the response data into lines
   int lines_read = split_fraction_links(http_fraction_res.data, fraction_links, num_links);
   if (lines_read < 0) {
       free(fraction_links);
@@ -56,10 +56,23 @@ int main() {
       return EXIT_FAILURE;
   }
 
+    char **content = download_to_memory(sfd, &res1,fraction_links, num_links);
+
+    for (int i = 0; i < lines_read ; i++) {
+        printf("Array %d:\n", i);
+        size_t size = res1.size;
+        for (size_t j = 0; j < size; j++) {
+            printf("%02x ", (unsigned char) content[i][j]);
+        }
+        printf("\n");
+        free(content[i]);
+    }
+    free(content);
+
   // Print the fraction links
   // TODO: Download each link to a file
   for (int i = 0; i < lines_read; i++) {
-      printf("%s\n", fraction_links[i]);
+     // printf("%s\n", fraction_links[i]);
       free(fraction_links[i]); // Free allocated memory for each line
   }
 

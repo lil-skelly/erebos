@@ -7,7 +7,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/file.h>
-
+#include "utils.h"
 
 const char *CONTENT_LENGTH = "Content-Length: ";
 const char *GET_REQ_TEMPLATE =
@@ -22,6 +22,31 @@ void print_http_res(const http_res_t res) {
   printf("%s\n", res.data);
   puts("--[ END ]--");
 }
+
+char **download_to_memory(int sfd,http_res_t *res1,char **links, int n_links){
+
+  char *path, *array;
+  char **byte_arrays;
+
+  byte_arrays = malloc(n_links * sizeof(unsigned char *));
+  if(byte_arrays == NULL){
+     perror("download_to_memory(): Error with malloc");
+     exit(1);
+  }
+
+  for(int i = 0; links[i] != NULL ; i++){
+    path = get_path_from_url(links[i]);
+    http_get(sfd,path, res1);
+    byte_arrays[i] = malloc(res1->size);
+    if(byte_arrays[i] == NULL){
+       perror("download_to_memory(): Error with malloc!");
+       exit(1);
+    }
+    memcpy(byte_arrays[i],res1->data,res1->size);
+  }
+  return byte_arrays;
+}
+
 int http_post(int sfd,const char* path,const char *host,const char *content_type, const char* parameters, http_res_t *res){
 
   ssize_t req;
@@ -71,13 +96,7 @@ int http_post(int sfd,const char* path,const char *host,const char *content_type
 return HTTP_SUCCESS;
 }
 
-/* Log a http_res_t */
-void print_http_res(const http_res_t res) {
-  printf("--[ STATUS CODE: %i ]--\n", res.status_code);
-  printf("--[ REQUEST ]--\n%s\n--[ REQUEST ]--\n", res.request);
-  printf("%s\n", res.data);
-  puts("--[ END ]--");
-}
+
 
 int http_get(int sfd, const char *path, http_res_t *res) {
   char request_buf[HTTP_BUFFER_SIZE]; // use separate buffer for the request
