@@ -1,10 +1,11 @@
 # erebos
-Fractionated Cavity Loader for Linux LKMs
+Fractionated Loader for Linux LKMs
 
 ## How does it work
-Erebos will consist of a server and a client (the loader itself).
-The basic concept of the loader is that the server will stage encrypted blobs of data which the loader will download in a random order, decrypt them and assemble the original object. 
-Finally it will load it to the running kernel.
+Erebos consists of a server and a client (the loader itself).
+The basic concept of erebos, is that the server will stage encrypted blobs of the loaded kernel module object file which the loader will download in a random order, decrypt and assemble them into the original LKM. Finally it will load it to the running kernel.
+
+As opposed to the fractionated cavity loader for windows executables presented in [VXUG Black Mass I 2022](https://samples.vx-underground.org/Papers/Other/VXUG%20Zines/2022-11-13%20-%20Black%20Mass%20Halloween%202022.pdf), the loader avoids touching the disk by working with the data in memory.
 
 ## Usage
 **Server**:
@@ -19,8 +20,8 @@ $ python main.py --output out
 The server is accountable for the preparation and staging of the LKM we want to load.
 It:
 1. takes as an input the object file of our LKM
-2. splits it into chunks of a set size (ex. 1024 bytes)
-3. encrypts each chunk with a predefined key (ex. AES-256)
+2. splits it into chunks of a set size
+3. encrypts each chunk with a predefined key
 4. assigns important metadata to each chunk that will allow the loader to assemble the object file correctly* (see [ordering the chunks](#ordering-the-chunks))
 5. writes each chunk to a file
 6. stages the different files via HTTP
@@ -34,10 +35,18 @@ The header should also have a fixed length, to be easily extracted from the rest
 
 **But what?**
 There isn't really a specific answer to that but hey, here's an idea:
-Each header will contain:
-- 4 magic bytes*, to ensure we are actually dealing with a header
+```
+  -[ Fraction Header ]-
+.-----------------------.
+| uint32_t magic bytes  |
+| uint32_t index        |
+| char iv[16]           |
+| uint32_t crc          |
+'-----------------------'
+```
+- 4 magic bytes, to ensure we are actually dealing with a header 
 - the index of the chunk
 - the IV (initialization vector) the chunk was encrypted with
-- a CRC32 checksum/hash of the header and the encrypted data
+- a CRC32 checksum of the header **and** the encrypted data
 
-\* Why use 3 when with 4 you get 0xdeadbeef ;)
+Leaves us with a 28-byte header containing precious information.
