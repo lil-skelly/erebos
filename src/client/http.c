@@ -23,35 +23,47 @@ void print_http_res(const http_res_t res) {
   puts("--[ END ]--");
 }
 
-char **download_to_memory(int sfd,http_res_t *res1,char **links, int n_links){
+int download_to_memory(int sfd,char **links, int n_links, char **byte_arrays){
 
-  char *path, *array;
-  char **byte_arrays;
+  http_res_t res1;
+  char *path;
 
   byte_arrays = malloc(n_links * sizeof(unsigned char *));
   if(byte_arrays == NULL){
      perror("download_to_memory(): Error with malloc");
-     exit(1);
+     return EXIT_FAILURE;
   }
 
   for(int i = 0; links[i] != NULL ; i++){
     path = get_path_from_url(links[i]);
-    http_get(sfd,path, res1);
-    byte_arrays[i] = malloc(res1->size);
+    http_get(sfd,path, &res1);
+    byte_arrays[i] = malloc(res1.size);
     if(byte_arrays[i] == NULL){
        perror("download_to_memory(): Error with malloc!");
-       exit(1);
+       return EXIT_FAILURE;
     }
-    memcpy(byte_arrays[i],res1->data,res1->size);
+    memcpy(byte_arrays[i],res1.data,res1.size);
   }
-  return byte_arrays;
+
+// PRINT EACH ARRAY AND IT CONTENTS
+    for (int i = 0; i < (n_links - 1); i++) {
+        printf("Array %d:\n", i);
+        size_t size = res1.size;
+        for (size_t j = 0; j < size; j++) {
+            printf("%02x ", (unsigned char) byte_arrays[i][j]);
+        }
+        printf("\n");
+        free(byte_arrays[i]);
+    }
+    free(byte_arrays);
+
+  return 0;
 }
 
 int http_post(int sfd,const char* path,const char *host,const char *content_type, const char* parameters, http_res_t *res){
 
   ssize_t req;
   char buffer[HTTP_BUFFER_SIZE];
-  char *http_str;
   const char *content_length_start, *status_code_start, *body_start;
   long content_length, header_length, received_length;
 

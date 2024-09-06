@@ -14,7 +14,8 @@ int main() {
   struct addrinfo hints, *ainfo;
   int sfd; // socket file descriptor
   char hostname[NI_MAXHOST];
-  http_res_t http_fraction_res, res1;
+  char **byte_arrays;
+  http_res_t http_fraction_res;
 
   /* Setup socket and initiate connection with the server */
   setup_hints(&hints);
@@ -56,18 +57,12 @@ int main() {
       return EXIT_FAILURE;
   }
 
-    char **content = download_to_memory(sfd, &res1,fraction_links, num_links);
+   if(download_to_memory(sfd,fraction_links,lines_read ,byte_arrays)){
+      puts("Error downloading chunks");
+      return EXIT_FAILURE;
+  };
 
-    for (int i = 0; i < lines_read ; i++) {
-        printf("Array %d:\n", i);
-        size_t size = res1.size;
-        for (size_t j = 0; j < size; j++) {
-            printf("%02x ", (unsigned char) content[i][j]);
-        }
-        printf("\n");
-        free(content[i]);
-    }
-    free(content);
+
 
   // Print the fraction links
   // TODO: Download each link to a file
