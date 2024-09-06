@@ -23,3 +23,23 @@ int split_fraction_links(char *data, char *data_arr[], int maxlines) {
 
   return lines_read;
 }
+
+
+char *get_path_from_url(const char *url) {
+    const char *path_start = strstr(url, "://");
+    if (!path_start) {
+        perror("There was a error with the URL");
+        return NULL;
+    }
+
+    path_start += 3; // Skip past "://"
+
+    // Find the first '/' after the host part
+    char *path = strchr(path_start, '/');
+    if (!path) {
+        perror("No string found!");
+        return "";
+    }
+
+    return path;
+}

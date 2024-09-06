@@ -16,5 +16,5 @@ static inline int count_lines(const char *str) {
   return count;
 }
 int split_fraction_links(char *data, char *data_arr[], int maxlines);
-
-#endif // UTILS_H 
+char *get_path_from_url(const char *url);
+#endif // UTILS_H
