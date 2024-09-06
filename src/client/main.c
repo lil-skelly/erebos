@@ -15,6 +15,7 @@ int main() {
   int sfd; // socket file descriptor
   char hostname[NI_MAXHOST];
   http_res_t http_fraction_res;
+  http_res_t http_post_res;
 
   /* Setup socket and initiate connection with the server */
   setup_hints(&hints);
@@ -25,28 +26,26 @@ int main() {
   if (h_getnameinfo(ainfo, hostname, sizeof(hostname)) != 0) {
     return EXIT_FAILURE;
   }
-
-  printf("Connecting to %s\n", hostname);
+  printf("Connecting to: %s\n", hostname);
   sfd = create_sock_and_conn(ainfo);
   if (sfd == -1) {
     return EXIT_FAILURE;
   }
+  freeaddrinfo(ainfo); // we don't need these anymore
 
   /* Get the fraction links */
-  // http_init(&http_fraction_res);
   if (http_get(sfd, "/", &http_fraction_res) != HTTP_SUCCESS) {
-    return EXIT_FAILURE;
+    goto err;
   }
   // Count number of links
   int num_links = count_lines(http_fraction_res.data) + 1; // +1 for the last line if not ending with \n
-
+  
   // Allocate memory for fraction links
   char **fraction_links = malloc(num_links * sizeof(char *));
   if (fraction_links == NULL) {
     fprintf(stderr, "malloc failed to allocate memory for fraction links\n");
-    close(sfd);
     http_free(&http_fraction_res);
-    return EXIT_FAILURE;
+    goto err;
   }
 
   // Split the response data into lines
@@ -55,8 +54,7 @@ int main() {
   if (lines_read < 0) {
     http_free(&http_fraction_res);
     free(fraction_links);
-    close(sfd);
-    return EXIT_FAILURE;
+    goto err;
   }
 
   // Print the fraction links
@@ -66,11 +64,26 @@ int main() {
     free(fraction_links[i]); // Free allocated memory for each line
   }
 
+  /* Tell the server that we successfully downloaded the fractions */
+  if (http_post(sfd, "/deadbeef", "plain/text", "{'downloaded':true}", &http_post_res) != HTTP_SUCCESS) {
+    http_free(&http_fraction_res);
+    http_free(&http_post_res);
+
+    free(fraction_links);
+    
+    goto err;
+  }
+
   /* Cleanup */
-  freeaddrinfo(ainfo);
-  close(sfd);
   http_free(&http_fraction_res);
+  http_free(&http_post_res);
+
   free(fraction_links);
 
+  close(sfd);
   return EXIT_SUCCESS;
+
+err:
+  close(sfd);
+  return EXIT_FAILURE;
 }

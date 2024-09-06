@@ -13,13 +13,15 @@
 const char *CONTENT_LENGTH_HEADER = "Content-Length: ";
 const char *GET_REQ_TEMPLATE =
     "GET %s HTTP/1.1\r\nConnection: keep-alive\r\n\r\n";
+const char *POST_REQ_TEMPLATE = "POST %s HTTP/1.1\r\nContent-Type: "
+                                "%s\r\nContent-Length: %d\r\n%s\r\n\r\n";
 
 /* Log a http_res_t */
 void print_http_res(const http_res_t res) {
   printf("--[ STATUS CODE: %i ]--\n", res.status_code);
   printf("--[ REQUEST ]--\n%s\n--[ REQUEST ]--\n", res.request);
   printf("%s\n", res.data);
-  puts("--[ END ]--");
+  puts("--[ END ]--\n");
 }
 
 /* Parse HTTP status code */
@@ -55,14 +57,126 @@ long parse_http_content_length(const char *buf) {
   return content_length;
 }
 
+/* Parse HTTP response body */
+int parse_http_body(int sfd, char *src, char *dest, long content_length, long total_bytes) {
+  const char *body_start;
+  long header_length, received_length, left_length;
+ 
+  body_start = strstr(src, "\r\n\r\n");
+  if (!body_start) {
+    perror("Header delimeter not found\n");
+    return -HTTP_INVALID_RESPONSE;
+  }
+  body_start += 4;
+
+  header_length = body_start - src;
+
+  received_length = MIN(total_bytes - header_length, content_length);
+  if (received_length < 0) { // in case God is against us
+    perror("Received length is negative\n");
+    return -HTTP_SOCKET_ERR;
+  }
+  memcpy(dest, body_start, received_length);
+
+  if (header_length + content_length > total_bytes) {
+    left_length = content_length - received_length;
+    if (recv_response(sfd, dest + received_length, left_length) < 0) {
+      perror("Failed to receive left over data\n");
+      return -HTTP_SOCKET_ERR;
+    }
+  }
+  
+  return 0;
+}
+
+int http_post(int sfd, const char *path,
+              const char *content_type, const char *parameters,
+              http_res_t *res) {
+  long total_bytes, bytes_read, content_length, status_code;
+  size_t req_buf_len;
+  char req_buffer[HTTP_BUFFER_SIZE];
+  char buffer[HTTP_BUFFER_SIZE];
+
+  snprintf(req_buffer, HTTP_BUFFER_SIZE - 1, POST_REQ_TEMPLATE, path, content_type,
+           strlen(parameters), parameters);
+  req_buf_len = strlen(req_buffer);
+
+  res->request = malloc(req_buf_len);
+  if (res->request == NULL) {
+    free(res->data); // free previously allocated data
+    return -HTTP_OOM;
+  }
+  strncpy(res->request, req_buffer, req_buf_len - 1);
+  
+  if (send_request(sfd, req_buffer) < 0) {
+    perror("Error: failed to send request\n");
+    return -HTTP_SOCKET_ERR;
+  }
+
+  if (HTTP_VERBOSE)
+    puts("Sent POST request");
+
+  /* Receive response from server */
+  total_bytes = 0;
+  while ((bytes_read = recv(sfd, buffer + total_bytes,
+                            HTTP_BUFFER_SIZE - 1 - total_bytes, 0)) > 0) {
+    total_bytes += bytes_read;
+    // add temporary null terminator
+    buffer[total_bytes] = 0;
+    if (NULL != strstr(buffer + total_bytes - bytes_read, "\r\n\r\n")) {
+      // if we read all headers stop reading
+      break;
+    }
+
+    if (total_bytes >= HTTP_BUFFER_SIZE - 1) {
+      buffer[HTTP_BUFFER_SIZE - 1] = 0;
+      break;
+    }
+  }
+
+  /* Check if response starts with "HTTP" */
+  if (memcmp(buffer, "HTTP", 4)) {
+    return -HTTP_INVALID_RESPONSE;
+  }
+
+  /* Parse status code */
+  status_code = parse_http_status_code(buffer);
+  if (status_code < 0) {
+    return -HTTP_INVALID_RESPONSE;
+  }
+  res->status_code = (int)status_code;
+
+  /* Parse content length */
+  content_length = parse_http_content_length(buffer);
+  if (content_length < 0) {
+    return -HTTP_INVALID_RESPONSE;
+  }
+  res->size = (size_t)content_length;
+
+  /* Parse the response body */
+  res->data = malloc(res->size);
+  if (res->data == NULL) {
+    return -HTTP_OOM;
+  }
+
+  if (parse_http_body(sfd, buffer, res->data, content_length, total_bytes)) {
+    return -HTTP_INVALID_RESPONSE;
+  }
+  
+  if (HTTP_VERBOSE)
+    puts("Parsed response");
+  if (HTTP_VERBOSE > 1)
+    print_http_res(*res);
+
+  return HTTP_SUCCESS;
+}
+
 int http_get(int sfd, const char *path, http_res_t *res) {
   char request_buf[HTTP_BUFFER_SIZE]; // use separate buffer for the request
   char buf[HTTP_BUFFER_SIZE];
 
-  const char *body_start;
   int bytes_read;
-  long total_bytes, status_code, header_length, content_length, received_length,
-      left_length;
+  long total_bytes, status_code, content_length;
   size_t req_buf_len;
 
   /* send request */
@@ -73,20 +187,25 @@ int http_get(int sfd, const char *path, http_res_t *res) {
     perror("Error: failed to send request\n");
     return -HTTP_SOCKET_ERR;
   }
+
   if (HTTP_VERBOSE)
     puts("Sent GET request");
 
-  /* receive response from server */
-  if (HTTP_VERBOSE)
-    puts("Receiving data");
+  res->request = malloc(req_buf_len);
+  if (res->request == NULL) {
+    free(res->data); // free previously allocated data
+    return -HTTP_OOM;
+  }
+  strncpy(res->request, request_buf, req_buf_len - 1);
 
+  /* receive response from server */
   total_bytes = 0;
   while ((bytes_read = recv(sfd, buf + total_bytes,
                             HTTP_BUFFER_SIZE - 1 - total_bytes, 0)) > 0) {
     total_bytes += bytes_read;
     // add temporary null terminator
     buf[total_bytes] = 0;
-    if (NULL != strstr(buf + total_bytes - bytes_read, "\r\n\r\n")) {
+    if (strstr(buf + total_bytes - bytes_read, "\r\n\r\n")) {
       // if we read all headers stop reading
       break;
     }
@@ -124,29 +243,9 @@ int http_get(int sfd, const char *path, http_res_t *res) {
     return -HTTP_OOM;
   }
 
-  body_start = strstr(buf, "\r\n\r\n") + 4;
-  header_length = body_start - buf;
-  received_length = MIN(total_bytes - header_length, content_length);
-
-  memcpy(res->data, body_start, received_length);
-
-  if (header_length + content_length > total_bytes) {
-    if (HTTP_VERBOSE)
-      puts("Receiving left over data");
-    left_length = content_length - received_length;
-    if (recv_response(sfd, res->data + received_length, left_length) < 0) {
-      perror("Failed to receive left over data\n");
-      free(res->data);
-      return -HTTP_SOCKET_ERR;
-    }
+  if (parse_http_body(sfd, buf, res->data, content_length, total_bytes) < 0) {
+    return -HTTP_INVALID_RESPONSE;
   }
-
-  res->request = malloc(req_buf_len);
-  if (res->request == NULL) {
-    free(res->data); // free previously allocated data
-    return -HTTP_OOM;
-  }
-  strncpy(res->request, request_buf, req_buf_len - 1);
 
   if (HTTP_VERBOSE)
     puts("Parsed response");
