@@ -15,6 +15,7 @@ int h_getaddrinfo(const char *ip, const char *port, struct addrinfo *hints,
   return 0;
 }
 
+
 int h_getnameinfo(const struct addrinfo *ainfo, char buffer[], size_t buffer_size) {
     int res;
     res = getnameinfo(ainfo->ai_addr, ainfo->ai_addrlen, buffer, buffer_size, NULL, 0, 0);
@@ -89,6 +90,5 @@ int create_sock_and_conn(struct addrinfo *res) {
     freeaddrinfo(res);
     return -1;
   }
-
   return sfd;
 }

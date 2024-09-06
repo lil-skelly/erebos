@@ -45,7 +45,7 @@ class PlainListingHTTPRequestHandler(SimpleHTTPRequestHandler):
         f.write(encoded)
         f.seek(0)
         self.send_response(HTTPStatus.OK)
-        self.send_header(f"Content-type", "text/plain; charset={enc}")
+        self.send_header("Content-type", f"text/plain; charset={enc}")
         self.send_header("Content-Length", str(len(encoded)))
         self.end_headers()
         return f
