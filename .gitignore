@@ -1,3 +1,6 @@
+# ignored compiled client
+src/client/client
+
 # Prerequisites
 *.d
 
