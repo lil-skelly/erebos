@@ -46,9 +46,14 @@ long parse_http_content_length(const char *buf) {
   const char *content_length_start;
   char *endptr;
   long content_length;
+  char *tmp;
 
-  content_length_start =
-      strstr(buf, CONTENT_LENGTH_HEADER) + strlen(CONTENT_LENGTH_HEADER);
+  tmp = strstr(buf, CONTENT_LENGTH_HEADER);
+  if (tmp == NULL) {
+    perror("No content length found\n");
+    return -HTTP_INVALID_RESPONSE;
+  }
+  content_length_start = tmp + strlen(CONTENT_LENGTH_HEADER);
 
   content_length = strtol(content_length_start, &endptr, 10);
   if (endptr == content_length_start) {
