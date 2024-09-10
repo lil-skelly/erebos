@@ -1,14 +1,5 @@
 #include "http.h"
 #include "sock.h"
-#include <assert.h>
-#include <fcntl.h>
-#include <netdb.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/file.h>
-#include <sys/socket.h>
-#include <time.h>
 
 const char *CONTENT_LENGTH_HEADER = "Content-Length: ";
 const char *GET_REQ_TEMPLATE =
