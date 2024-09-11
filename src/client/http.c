@@ -1,5 +1,6 @@
 #include "http.h"
 #include "sock.h"
+#include "utils.h"
 #include <assert.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -7,7 +8,6 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/file.h>
-#include "utils.h"
 
 const char *CONTENT_LENGTH = "Content-Length: ";
 const char *GET_REQ_TEMPLATE =
