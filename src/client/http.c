@@ -25,7 +25,7 @@ void print_http_res(const http_res_t *res) {
   printf("--[ STATUS CODE: %i ]--\n", res->status_code);
   printf("--[ REQUEST ]--\n%s\n--[ REQUEST ]--\n", res->request);
   // res->data is not null-terminated so use write here
-  write(stdout, res->data, res->size);
+  write(1, res->data, res->size);
   puts("--[ END ]--\n");
 }
 
@@ -51,7 +51,6 @@ long parse_http_content_length(const char *buf) {
   const char *content_length_start;
   char *endptr;
   long content_length;
-  char *tmp;
 
   content_length_start = strstr(buf, CONTENT_LENGTH_HEADER);
   

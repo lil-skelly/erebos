@@ -64,12 +64,10 @@ int main() {
   //     return EXIT_FAILURE;
   // };
 
-
-
   // Print the fraction links
   // TODO: Download each link to a file
   for (int i = 0; i < lines_read; i++) {
-     // printf("%s\n", fraction_links[i]);
+      // printf("%s\n", fraction_links[i]);
       free(fraction_links[i]); // Free allocated memory for each line
   }
 
