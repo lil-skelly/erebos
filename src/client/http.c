@@ -1,5 +1,4 @@
 #include "http.h"
-#include "sock.h"
 
 const char *CONTENT_LENGTH_HEADER = "Content-Length: ";
 const char *GET_REQ_TEMPLATE =
