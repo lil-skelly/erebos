@@ -6,15 +6,12 @@
 #include <string.h>
 #include "sock.h"
 
-#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
-
-#define HTTP_BUFFER_SIZE 1024
-
 // error codes
 #define HTTP_SUCCESS 0
-#define HTTP_SOCKET_ERR 1
-#define HTTP_INVALID_RESPONSE 2
-#define HTTP_OOM 3
+#define HTTP_SOCKET_ERR -1
+#define HTTP_INVALID_RESPONSE -2
+#define HTTP_OOM -3
+#define HTTP_HEADERS_TOO_LONG -4
 
 #define HTTP_VERBOSE 1
 
