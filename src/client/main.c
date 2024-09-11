@@ -59,15 +59,10 @@ int main() {
     goto err;
   }
 
-   if(download_to_memory(sfd,fraction_links,lines_read ,byte_arrays)){
-      puts("Error downloading chunks");
-      return EXIT_FAILURE;
-  }
-
-   if(download_to_memory(sfd,fraction_links,lines_read ,byte_arrays)){
-      puts("Error downloading chunks");
-      return EXIT_FAILURE;
-  };
+  //  if(download_to_memory(sfd,fraction_links,lines_read ,byte_arrays)){
+  //     puts("Error downloading chunks");
+  //     return EXIT_FAILURE;
+  // };
 
 
 
