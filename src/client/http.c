@@ -1,16 +1,4 @@
 #include "http.h"
-#include "sock.h"
-#include <assert.h>
-#include <fcntl.h>
-#include <netdb.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/file.h>
-#include <sys/socket.h>
-#include <time.h>
-#include <unistd.h>
-
 
 #define HTTP_BUFFER_SIZE 1024
 
@@ -63,6 +51,7 @@ long parse_http_content_length(const char *buf) {
   const char *content_length_start;
   char *endptr;
   long content_length;
+  char *tmp;
 
   content_length_start = strstr(buf, CONTENT_LENGTH_HEADER);
   

@@ -3,11 +3,11 @@
 
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <sys/socket.h>
 #include <stdio.h>
-#include <unistd.h>
+#include <stdlib.h>
 #include <string.h>
-
+#include <sys/socket.h>
+#include <unistd.h>
 
 int create_sock_and_conn(struct addrinfo *res);
 void setup_hints(struct addrinfo *hints);

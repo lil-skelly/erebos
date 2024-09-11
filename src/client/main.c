@@ -14,6 +14,7 @@ int main() {
   struct addrinfo hints, *ainfo;
   int sfd; // socket file descriptor
   char hostname[NI_MAXHOST];
+  char **byte_arrays;
   http_res_t http_fraction_res;
   http_res_t http_post_res;
 
@@ -31,6 +32,7 @@ int main() {
   if (sfd == -1) {
     return EXIT_FAILURE;
   }
+
   freeaddrinfo(ainfo); // we don't need these anymore
 
   /* Get the fraction links */
@@ -57,11 +59,18 @@ int main() {
     goto err;
   }
 
+  //  if(download_to_memory(sfd,fraction_links,lines_read ,byte_arrays)){
+  //     puts("Error downloading chunks");
+  //     return EXIT_FAILURE;
+  // };
+
+
+
   // Print the fraction links
   // TODO: Download each link to a file
   for (int i = 0; i < lines_read; i++) {
-    printf("%s\n", fraction_links[i]);
-    free(fraction_links[i]); // Free allocated memory for each line
+     // printf("%s\n", fraction_links[i]);
+      free(fraction_links[i]); // Free allocated memory for each line
   }
 
   /* Tell the server that we successfully downloaded the fractions */
