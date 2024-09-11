@@ -1,7 +1,10 @@
 #ifndef HTTP_H
 #define HTTP_H
 
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include "sock.h"
 
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 
@@ -13,7 +16,7 @@
 #define HTTP_INVALID_RESPONSE 2
 #define HTTP_OOM 3
 
-#define HTTP_VERBOSE 0
+#define HTTP_VERBOSE 1
 
 typedef struct {
     int status_code;
@@ -22,10 +25,14 @@ typedef struct {
     size_t size;
 } http_res_t;
 
-int   http_get(int sfd, const char *path, http_res_t *res);
 void  http_free(http_res_t *res);
-int   http_download_data_to_file(int sfd, const char *path, const char *f_path);
-int   http_split_data(char* data, char* data_arr[], int maxlines);
-int   http_post(int sfd,const char* path,const char *host,const char *content_type, const char* parameters, http_res_t *res);
-int download_to_memory(int sfd,char **links,int n_links,char **bytes_array);
-#endif
+
+int   http_get(int sfd, const char *path, http_res_t *res);
+int   http_post(int sfd,const char* path,const char *content_type, const char* parameters, http_res_t *res);
+
+int   download_to_memory(int sfd,char **links,int n_links,char **bytes_array);
+
+long  parse_http_status_code(const char *buf);
+long  parse_http_content_length(const char *buf);
+  
+#endif // HTTP_H

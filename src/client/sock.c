@@ -1,7 +1,4 @@
 #include "sock.h"
-#include <netdb.h>
-#include <stdlib.h>
-
 /* Wrapper for getaddrinfo, handles error */
 int h_getaddrinfo(const char *ip, const char *port, struct addrinfo *hints,
                   struct addrinfo **ainfo) {
@@ -14,6 +11,7 @@ int h_getaddrinfo(const char *ip, const char *port, struct addrinfo *hints,
   }
   return 0;
 }
+
 
 int h_getnameinfo(const struct addrinfo *ainfo, char buffer[], size_t buffer_size) {
     int res;
@@ -89,6 +87,5 @@ int create_sock_and_conn(struct addrinfo *res) {
     freeaddrinfo(res);
     return -1;
   }
-
   return sfd;
 }

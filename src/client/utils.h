@@ -8,7 +8,7 @@
 
 /* Helper to count new line characters in a string */
 static inline int count_lines(const char *str) {
-  int count;
+  int count = 0;
   while (*str) {
     if (*str == '\n') count++;
     str++;
