@@ -2,6 +2,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "fraction.h"
 #include "http.h"
 #include "sock.h"
 #include "utils.h"
@@ -14,83 +15,92 @@ int main() {
   struct addrinfo hints, *ainfo;
   int sfd; // socket file descriptor
   char hostname[NI_MAXHOST];
-  char **byte_arrays;
-  http_res_t http_fraction_res;
-  http_res_t http_post_res;
+  http_res_t http_fraction_res, http_post_res;
 
   /* Setup socket and initiate connection with the server */
   setup_hints(&hints);
 
   if (h_getaddrinfo(SERVER_IP, SERVER_PORT, &hints, &ainfo) != 0) {
+    fprintf(stderr, "Failed to resolve server address\n");
     return EXIT_FAILURE;
   }
+
   if (h_getnameinfo(ainfo, hostname, sizeof(hostname)) != 0) {
+    freeaddrinfo(ainfo);
+    fprintf(stderr, "Failed to get server hostname\n");
     return EXIT_FAILURE;
   }
+
   printf("Connecting to: %s\n", hostname);
   sfd = create_sock_and_conn(ainfo);
   if (sfd == -1) {
+    fprintf(stderr, "Failed to create socket and connect\n");
     return EXIT_FAILURE;
   }
-
-  freeaddrinfo(ainfo); // we don't need these anymore
+  freeaddrinfo(ainfo); // ainfo no longer needed
 
   /* Get the fraction links */
   if (http_get(sfd, "/", &http_fraction_res) != HTTP_SUCCESS) {
-    goto err;
+    fprintf(stderr, "Failed to retrieve fraction links\n");
+    goto cleanup_socket;
   }
+
   // Count number of links
-  int num_links = count_lines(http_fraction_res.data) + 1; // +1 for the last line if not ending with \n
-  
+  int num_links = count_lines(http_fraction_res.data) + 1;
+
   // Allocate memory for fraction links
   char **fraction_links = malloc(num_links * sizeof(char *));
-  if (fraction_links == NULL) {
-    fprintf(stderr, "malloc failed to allocate memory for fraction links\n");
+  if (!fraction_links) {
+    fprintf(stderr, "Failed to allocate memory for fraction links\n");
     http_free(&http_fraction_res);
-    goto err;
+    goto cleanup_socket;
   }
 
   // Split the response data into lines
   int lines_read =
       split_fraction_links(http_fraction_res.data, fraction_links, num_links);
   if (lines_read < 0) {
-    http_free(&http_fraction_res);
+    fprintf(stderr, "Failed to split fraction links\n");
     free(fraction_links);
-    goto err;
+    http_free(&http_fraction_res);
+    goto cleanup_socket;
   }
 
-  //  if(download_to_memory(sfd,fraction_links,lines_read ,byte_arrays)){
-  //     puts("Error downloading chunks");
-  //     return EXIT_FAILURE;
-  // };
-
-  // Print the fraction links
-  // TODO: Download each link to a file
-  for (int i = 0; i < lines_read; i++) {
-      // printf("%s\n", fraction_links[i]);
-      free(fraction_links[i]); // Free allocated memory for each line
+  fraction_t *fractions = malloc(lines_read * sizeof(fraction_t));
+  for (int i=0; i<lines_read; i++) {
+    if (download_fraction(sfd, fraction_links[i], &fractions[i]) != 0) {
+      fprintf(stderr, "Failed to parse fraction\n");
+    }
+    print_fraction(fractions[i]);
   }
 
-  /* Tell the server that we successfully downloaded the fractions */
-  if (http_post(sfd, "/deadbeef", "plain/text", "{'downloaded':true}", &http_post_res) != HTTP_SUCCESS) {
+  /* Notify the server that we successfully downloaded the fractions */
+  if (http_post(sfd, "/deadbeef", "plain/text", "{'downloaded':true}",
+                &http_post_res) != HTTP_SUCCESS) {
+    fprintf(stderr, "Failed to send POST request\n");
+    free(fraction_links);
     http_free(&http_fraction_res);
     http_free(&http_post_res);
-
-    free(fraction_links);
-    
-    goto err;
+    goto cleanup_socket;
   }
 
   /* Cleanup */
   http_free(&http_fraction_res);
   http_free(&http_post_res);
 
+  // Free fractions and links
+  for (int i = 0; i < lines_read; i++) {
+    
+    free(fraction_links[i]);
+    fraction_free(&fractions[i]);
+  }
   free(fraction_links);
+  free(fractions);
 
   close(sfd);
   return EXIT_SUCCESS;
 
-err:
+cleanup_socket:
   close(sfd);
   return EXIT_FAILURE;
 }

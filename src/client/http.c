@@ -291,42 +291,6 @@ error:
   return err;
 }
 
-/* Perform a GET request to path and write the body to the file specified in
- * f_path */
-int http_download_data_to_file(int sfd, const char *path, const char *f_path) {
-  http_res_t res;
-  FILE *file;
-  int error;
-
-  error = http_get(sfd, path, &res);
-  if (error != HTTP_SUCCESS) {
-    return error;
-  }
-
-  file = fopen(f_path, "w");
-  if (file == NULL) {
-    perror("Error: Failed to open file");
-    http_free(&res);
-    return -1;
-  }
-
-  if (fwrite(res.data, sizeof(char), res.size, file) != res.size) {
-    perror("Error: Failed to write data to file");
-    fclose(file);
-    http_free(&res);
-    return -2;      
-  }
-
-  if (fclose(file) != 0) {
-    perror("Error: Failed to close file");
-    http_free(&res);
-    return -3;
-  }
-
-  http_free(&res);
-  return 0;
-}
-
 /* Properly free a http_res_t structure */
 void http_free(http_res_t *res) {
   free(res->data);
