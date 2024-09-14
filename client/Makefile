@@ -1,6 +1,6 @@
 CC = gcc
 FLAGS = -Wall -Wextra -Wshadow
-SRC = main.c sock.c http.c utils.c fraction.c
+SRC = src/main.c src/sock.c src/http.c src/utils.c src/fraction.c
 OUT = client
 
 all:

@@ -1,4 +1,4 @@
-#include "fraction.h"
+#include "../include/fraction.h"
 #include <stdint.h>
 
 
@@ -107,4 +107,16 @@ void fraction_free(fraction_t *fraction) {
   fraction->magic = 0;
   fraction->index = 0;
   fraction->crc = 0;
+}
+
+// Function used by qsort() to compare the index of our fractions
+int compare_fractions(const void* a, const void* b) {
+  const fraction_t* frac_a = (const fraction_t*)a;
+  const fraction_t* frac_b = (const fraction_t*)b;
+
+  if (frac_a->index < frac_b->index) {
+    return -1;
+  } else {
+    return 1;
+  }
 }

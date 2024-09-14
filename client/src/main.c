@@ -2,16 +2,16 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "fraction.h"
-#include "http.h"
-#include "sock.h"
-#include "utils.h"
+#include "../include/fraction.h"
+#include "../include/http.h"
+#include "../include/sock.h"
+#include "../include/utils.h"
 
 /* Networking constants */
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT "8000"
 
-int main() {
+int main(void) {
   struct addrinfo hints, *ainfo;
   int sfd; // socket file descriptor
   char hostname[NI_MAXHOST];
@@ -66,6 +66,7 @@ int main() {
     goto cleanup_socket;
   }
 
+  // Storing the fractions in a array
   fraction_t *fractions = malloc(lines_read * sizeof(fraction_t));
   for (int i=0; i<lines_read; i++) {
     if (download_fraction(sfd, fraction_links[i], &fractions[i]) != 0) {
@@ -87,6 +88,9 @@ int main() {
   /* Cleanup */
   http_free(&http_fraction_res);
   http_free(&http_post_res);
+
+  // Sort the fractions based on index
+  qsort(fractions, lines_read, sizeof(fraction_t), compare_fractions);
 
   // Free fractions and links
   for (int i = 0; i < lines_read; i++) {

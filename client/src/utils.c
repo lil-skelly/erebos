@@ -1,4 +1,4 @@
-#include "utils.h"
+#include "../include/utils.h"
 
 // if this dont work Skelly is to blame ;)
 int split_fraction_links(char *data, char *data_arr[], int maxlines) {

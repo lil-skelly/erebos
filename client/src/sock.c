@@ -1,4 +1,4 @@
-#include "sock.h"
+#include "../include/sock.h"
 /* Wrapper for getaddrinfo, handles error */
 int h_getaddrinfo(const char *ip, const char *port, struct addrinfo *hints,
                   struct addrinfo **ainfo) {
