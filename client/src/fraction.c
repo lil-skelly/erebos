@@ -23,7 +23,6 @@ int download_fraction(int sfd, char *url, fraction_t *fraction) {
 
   // Parse the downloaded data into a fraction
   if (fraction_parse(res.data, res.size, &downloaded_fraction) != 0) {
-    fprintf(stderr, "Failed to parse fraction from downloaded data\n");
     http_free(&res); // Free HTTP response
     return 1;        // Return failure
   }
@@ -91,6 +90,14 @@ int check_magic(uint32_t magic) {
   return magic == MAGIC;
 }
 
+// Function used by qsort() to compare the index of our fractions
+int compare_fractions(const void *a, const void *b) {
+  const fraction_t *frac_a = (const fraction_t *)a;
+  const fraction_t *frac_b = (const fraction_t *)b;
+
+  return frac_a->index - frac_b->index;
+}
+
 void print_fraction(fraction_t fraction) {
   printf("Magic: 0x%08x\n", fraction.magic);
   printf("Index: %u\n", fraction.index);
@@ -99,7 +106,7 @@ void print_fraction(fraction_t fraction) {
   for (size_t i = 0; i < sizeof(fraction.iv); i++) {
     printf("%02x ", (unsigned char)fraction.iv[i]);
   }
-  printf("\n");
+  printf("\n\n");
 }
 
 void fraction_free(fraction_t *fraction) {
@@ -107,16 +114,4 @@ void fraction_free(fraction_t *fraction) {
   fraction->magic = 0;
   fraction->index = 0;
   fraction->crc = 0;
-}
-
-// Function used by qsort() to compare the index of our fractions
-int compare_fractions(const void* a, const void* b) {
-  const fraction_t* frac_a = (const fraction_t*)a;
-  const fraction_t* frac_b = (const fraction_t*)b;
-
-  if (frac_a->index < frac_b->index) {
-    return -1;
-  } else {
-    return 1;
-  }
 }

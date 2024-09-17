@@ -12,17 +12,6 @@ int h_getaddrinfo(const char *ip, const char *port, struct addrinfo *hints,
   return 0;
 }
 
-
-int h_getnameinfo(const struct addrinfo *ainfo, char buffer[], size_t buffer_size) {
-    int res;
-    res = getnameinfo(ainfo->ai_addr, ainfo->ai_addrlen, buffer, buffer_size, NULL, 0, 0);
-    if (res != 0) {
-        fprintf(stderr, "Error: getnameinfo: %s\n", gai_strerror(res));
-        return res;
-    }
-    return 0;
-}
-
 /* Create a socket and return the socket file descriptor */
 int create_socket(struct addrinfo *ainfo) {
   int sfd;

@@ -14,7 +14,6 @@
 int main(void) {
   struct addrinfo hints, *ainfo;
   int sfd; // socket file descriptor
-  char hostname[NI_MAXHOST];
   http_res_t http_fraction_res, http_post_res;
 
   /* Setup socket and initiate connection with the server */
@@ -25,13 +24,8 @@ int main(void) {
     return EXIT_FAILURE;
   }
 
-  if (h_getnameinfo(ainfo, hostname, sizeof(hostname)) != 0) {
-    freeaddrinfo(ainfo);
-    fprintf(stderr, "Failed to get server hostname\n");
-    return EXIT_FAILURE;
-  }
 
-  printf("Connecting to: %s\n", hostname);
+  printf("Connecting to: %s:%s\n", SERVER_IP, SERVER_PORT);
   sfd = create_sock_and_conn(ainfo);
   if (sfd == -1) {
     fprintf(stderr, "Failed to create socket and connect\n");
@@ -68,10 +62,19 @@ int main(void) {
 
   // Storing the fractions in a array
   fraction_t *fractions = malloc(lines_read * sizeof(fraction_t));
+  if (fractions == NULL) {
+    fprintf(stderr, "Failed to malloc memory for fractions\n");
+  }
+
   for (int i=0; i<lines_read; i++) {
     if (download_fraction(sfd, fraction_links[i], &fractions[i]) != 0) {
       fprintf(stderr, "Failed to parse fraction\n");
     }
+  }
+
+  // Sort the fractions based on index
+  qsort(fractions, lines_read, sizeof(fraction_t), compare_fractions);
+  for (int i = 0; i < lines_read; i++) {
     print_fraction(fractions[i]);
   }
 
@@ -89,12 +92,8 @@ int main(void) {
   http_free(&http_fraction_res);
   http_free(&http_post_res);
 
-  // Sort the fractions based on index
-  qsort(fractions, lines_read, sizeof(fraction_t), compare_fractions);
-
   // Free fractions and links
   for (int i = 0; i < lines_read; i++) {
-    
     free(fraction_links[i]);
     fraction_free(&fractions[i]);
   }
