@@ -37,8 +37,9 @@ class PlainListingHTTPRequestHandler(SimpleHTTPRequestHandler):
         server_addr = self.server.server_address
         host, port = server_addr
         for name in file_list:
-            display_name = f"http://{host}:{port}{self.path}{name}"
-            contents.append(html.escape(display_name, quote=False))
+            if name != ".erebos_bckp":
+                display_name = f"http://{host}:{port}{self.path}{name}"
+                contents.append(html.escape(display_name, quote=False))
 
         encoded = "\n".join(contents).encode(enc, "surrogateescape")
         f = io.BytesIO()

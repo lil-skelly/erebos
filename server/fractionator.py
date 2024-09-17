@@ -41,7 +41,7 @@ class Fraction:
 
     def calculate_crc(self) -> None:
         """Calculate the CRC checksum of the fraction"""
-        crc_data = self.header_to_bytes(crc=False)
+        crc_data = self.header_to_bytes(crc=False) + self.data
         self._crc = zlib.crc32(crc_data)
 
     @property
