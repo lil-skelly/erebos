@@ -15,7 +15,6 @@ int main(void) {
   struct addrinfo hints, *ainfo;
   int sfd; // socket file descriptor
   http_res_t http_fraction_res, http_post_res;
-  size_t size = 0;
   /* Setup socket and initiate connection with the server */
   setup_hints(&hints);
 
@@ -76,8 +75,9 @@ int main(void) {
   qsort(fractions, lines_read, sizeof(fraction_t), compare_fractions);
   for (int i = 0; i < lines_read; i++) {
     print_fraction(fractions[i]);
-    size++;
   }
+
+  check_fractions(fractions, lines_read);
 
   /* Notify the server that we successfully downloaded the fractions */
   if (http_post(sfd, "/deadbeef", "plain/text", "{'downloaded':true}",
@@ -88,9 +88,6 @@ int main(void) {
     http_free(&http_post_res);
     goto cleanup_socket;
   }
-
-  check_fractions(fractions,size);
-
 
   /* Cleanup */
   http_free(&http_fraction_res);

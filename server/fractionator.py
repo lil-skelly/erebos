@@ -22,7 +22,7 @@ class Fraction:
     data: bytes
 
     def header_to_bytes(
-        self, endianess: Literal["big", "little"] = "big", crc=True
+        self, endianess: Literal["big", "little"] = "little", crc=True
     ) -> bytes:
         """
         Convert the header information of the fraction to bytes
@@ -32,12 +32,14 @@ class Fraction:
         """
         end = ">" if endianess == "big" else "<"
         fmt = f"{end}II16sI" if crc else f"{end}II16s"
-
+    
         args = [fmt, self.magic, self.index, self.iv]
         if crc:
             args.append(self._crc)
 
-        return struct.pack(*args)
+        header_data = struct.pack(*args);
+        logging.info(f"Header data: {header_data.hex()}")
+        return header_data
 
     def calculate_crc(self) -> None:
         """Calculate the CRC checksum of the fraction"""
@@ -51,6 +53,10 @@ class Fraction:
 
         return self._crc
 
+    @property
+    def data_size(self) -> int:
+        return len(self.data)
+    
     def __post_init__(self) -> None:
         self.calculate_crc()
 

@@ -16,8 +16,10 @@ typedef struct {
     uint32_t magic;
     uint32_t index;
     char iv[16];
-    uint32_t crc;
 
+    uint32_t crc;
+    
+    size_t data_size;
     char *data;
 } fraction_t;
 
