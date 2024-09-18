@@ -133,10 +133,15 @@ uint32_t calc_crc(fraction_t *frac){
   return calculated_crc == frac->crc;
 }
 
-void check_fractions(fraction_t *fraction, size_t size){
+int check_fractions(fraction_t *fraction, size_t size){
   for(size_t i = 0; i < size; i++){
-    calc_crc(&fraction[i]);
+    if (!calc_crc(&fraction[i])) {
+      fprintf(stderr, "Failed to validate integrity of fraction:\n");
+      print_fraction(fraction[i]);
+      return 1;
+    }
   }
+  return 0;
 }
 
 void fraction_free(fraction_t *fraction) {
