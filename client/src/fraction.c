@@ -1,6 +1,6 @@
 #include "../include/fraction.h"
 #include <stdint.h>
-
+#include "../include/crc32.h"
 
 // Change the return type to int to indicate success or failure
 int download_fraction(int sfd, char *url, fraction_t *fraction) {
@@ -109,9 +109,52 @@ void print_fraction(fraction_t fraction) {
   printf("\n\n");
 }
 
+uint32_t calc_crc(fraction_t *frac){
+
+    uint8_t buffer[sizeof(frac->magic) + sizeof(frac->index) + sizeof(frac->iv) + strlen(frac->data)];
+    size_t offset = 0;
+
+    memcpy(buffer + offset, &frac->magic, sizeof(frac->magic));
+    offset += sizeof(frac->magic);
+
+    memcpy(buffer + offset, &frac->index, sizeof(frac->index));
+    offset += sizeof(frac->index);
+
+    memcpy(buffer + offset, frac->iv, sizeof(frac->iv));
+    offset += sizeof(frac->iv);
+
+    memcpy(buffer + offset, frac->data, strlen(frac->data));
+    offset += strlen(frac->data);
+
+    uint32_t calculated_crc = crc32(buffer, offset);
+
+    if (calculated_crc == frac->crc) {
+        printf("Checksum correcto\n");
+    } else {
+        printf("Checksum incorrecto\n");
+        printf("Checksum generado: %08X\n", calculated_crc);
+        printf("Checksum que deberia ser: %08X\n", frac->crc);
+    }
+
+  return calculated_crc == frac->crc;
+}
+
+void check_fractions(fraction_t *fraction, size_t size){
+
+  for(size_t i = 0; i < size; i++){
+    if(calc_crc(&fraction[i])){
+      puts("checksum is correct");
+    } else{
+      puts("Checksum incorrect");
+    }
+  }
+}
+
 void fraction_free(fraction_t *fraction) {
   free(fraction->data);
   fraction->magic = 0;
   fraction->index = 0;
   fraction->crc = 0;
 }
+
+
