@@ -51,7 +51,16 @@ def handle_args(parser: argparse.ArgumentParser):
         "--rm-backup", action="store_true", help="Remove the generated backup file"
     )
 
+def handle_cleanup(fractionator: Fractionator, path: str) -> None:
+    fractionator.load_backup(backup_path)
+    fractionator.clean_fractions()
 
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        logging.critical(f"{path} is not a valid file.")
+        return
+    
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     handle_args(parser)
@@ -76,33 +85,25 @@ if __name__ == "__main__":
     backup_path = os.path.join(out_path, BACKUP_FILENAME) # backup file path
     
     
-    lkm = Fractionator("", out_path, key)
-    # Clean mode
-    if args.clean:
-        lkm.load_backup(backup_path)
-        lkm.clean_fractions()
-
-        try:
-            os.remove(backup_path)
-        except FileNotFoundError:
-            logging.critical(f"{backup_path} is not a valid file.")
-            exit(1)
-        exit(0)
-        
-    else:
-        if not args.file:
-            raise ValueError("The --file flag is required for this mode.")
-        file_path = os.path.abspath(args.file)
-        _, ext = os.path.splitext(file_path)
-        if ext != ".ko":
-            raise ValueError(f"Invalid file type")
-        # TODO: Implement path validation
-        lkm._path = args.file
-        lkm.make_fractions()
-        lkm.write_fractions()
-        lkm.save_backup(backup_path)
-        
+    fractionator = Fractionator("", out_path, key)
     
+    handle_cleanup(fractionator, backup_path)
+    if args.clean: exit(0)
+
+    if not args.file:
+        raise ValueError("The --file flag is required for this mode.")
+    file_path = os.path.abspath(args.file)
+    _, ext = os.path.splitext(file_path)
+    if ext != ".ko":
+        raise ValueError(f"Invalid file type")
+
+    # TODO: Implement path validation
+    fractionator._path = args.file
+    fractionator.make_fractions()
+    fractionator.write_fractions()
+    fractionator.save_backup(backup_path)
+    
+
     # lkm.close_stream()
 
     # Stage fractions over HTTP
