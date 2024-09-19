@@ -4,14 +4,16 @@ import struct
 from typing import Literal
 import logging
 
+
 @dataclass
 class Fraction:
     """Dataclass to represent a fraction"""
+
     magic: int
     index: int
     iv: bytes
     data: bytes
-    
+
     _crc: int = field(init=False, repr=False)
     _generated_crc: bool = field(init=False, repr=False, default=False)
 
@@ -24,7 +26,7 @@ class Fraction:
     ) -> bytes:
         """
         Convert the header information of the fraction to bytes.
-        
+
         endianess: Endianness to use (big, little)
         include_crc: Include CRC in the returned data (default: True)
         """
@@ -35,7 +37,7 @@ class Fraction:
         args = [self.magic, self.index, self.iv]
         if include_crc:
             args.append(self.crc)
-        
+
         header_data = struct.pack(fmt, *args)
         logging.debug(f"Header data [{self.index}]: {header_data.hex()}")
         return header_data
