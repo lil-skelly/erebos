@@ -104,7 +104,7 @@ void print_fraction(fraction_t fraction) {
   printf("Data size: %lu\n\n", fraction.data_size);
 }
 
-uint32_t calc_crc(fraction_t *frac){
+int calc_crc(fraction_t *frac){
     uint8_t buffer[sizeof(frac->magic) + sizeof(frac->index) + sizeof(frac->iv) + frac->data_size];
     size_t offset = 0;
 
@@ -122,9 +122,7 @@ uint32_t calc_crc(fraction_t *frac){
 
     uint32_t calculated_crc = crc32(buffer, offset);
 
-    if (calculated_crc == frac->crc) {
-        printf("Checksum correct\n");
-    } else {
+    if (calculated_crc != frac->crc) {
         printf("Checksum incorrect\n");
         printf("Checksum generated: %08X\n", calculated_crc);
         printf("Checksum from fraction: %08X\n\n", frac->crc);
@@ -134,14 +132,15 @@ uint32_t calc_crc(fraction_t *frac){
 }
 
 int check_fractions(fraction_t *fraction, size_t size){
+  int res = 0;
   for(size_t i = 0; i < size; i++){
     if (!calc_crc(&fraction[i])) {
       fprintf(stderr, "Failed to validate integrity of fraction:\n");
       print_fraction(fraction[i]);
-      return 1;
+      res += 1;
     }
   }
-  return 0;
+  return res;
 }
 
 void fraction_free(fraction_t *fraction) {

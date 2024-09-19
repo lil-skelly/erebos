@@ -84,11 +84,8 @@ int main(void) {
       fprintf(stderr, "Failed to download fraction\n");
     }
   }
-
+  puts("Downloaded fractions");
   qsort(fractions, lines_read, sizeof(fraction_t), compare_fractions);
-  for (int i = 0; i < lines_read; i++) {
-    print_fraction(fractions[i]);
-  }
 
   if (check_fractions(fractions, lines_read)) { // if this works, s0s4 and skelly is to blame!
     fprintf(stderr, "Fractions check failed\n");
@@ -98,6 +95,7 @@ int main(void) {
     http_free(&http_post_res);
     goto cleanup;
   }
+  puts("Verified fractions");
 
   if (http_post(sfd, "/deadbeef", "plain/text", "{'downloaded':true}",
                 &http_post_res) != HTTP_SUCCESS) {
