@@ -1,59 +1,11 @@
 import os
 import io
-from typing import Callable, Optional
+from typing import Optional
 import logging
 import secrets
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import utils
-from dataclasses import dataclass, field
-import zlib
-import struct
-from typing import Literal
-
-
-@dataclass
-class Fraction:
-    """Dataclass to represent a fraction"""
-
-    magic: int
-    index: int
-    iv: bytes
-    _crc: int = field(init=False, repr=False)
-    data: bytes
-
-    def header_to_bytes(
-        self, endianess: Literal["big", "little"] = "big", crc=True
-    ) -> bytes:
-        """
-        Convert the header information of the fraction to bytes
-
-        endianess: Endianess to use (big, little)
-        crc: Include CRC in the returned data (default: True)
-        """
-        end = ">" if endianess == "big" else "<"
-        fmt = f"{end}II16sI" if crc else f"{end}II16s"
-
-        args = [fmt, self.magic, self.index, self.iv]
-        if crc:
-            args.append(self._crc)
-
-        return struct.pack(*args)
-
-    def calculate_crc(self) -> None:
-        """Calculate the CRC checksum of the fraction"""
-        crc_data = self.header_to_bytes(crc=False) + self.data
-        self._crc = zlib.crc32(crc_data)
-
-    @property
-    def crc(self) -> int:
-        if not self._crc:
-            self.calculate_crc()
-
-        return self._crc
-
-    def __post_init__(self) -> None:
-        self.calculate_crc()
-
+from fraction import Fraction
 
 class Fractionator:
     MAGIC: int = 0xDEADBEEF
@@ -76,16 +28,33 @@ class Fractionator:
         self._key: Optional[bytes] = Fractionator.validate_aes_key(
             key
         )  # AES-256 cryptographic key
+        self._mode = modes.CFB
+        self._algorithm = algorithms.AES256
+        self._cipher = None
+        
+    @property
+    def cipher(self) -> Cipher:
+        if not self._cipher:
+            if not self._key or not self._iv:
+                raise ValueError(f"Missing key or IV (_key:{self._key}, _iv:{self._iv})")
+            
+            self._cipher = Cipher(self._algorithm(self._key), self._mode(self._iv))
+    
+        return self._cipher
 
     def open_reading_stream(self) -> None:
         """
         Opens a reading stream to the file specified in self._path.
         If a stream is already open, this function has no effect
         """
-        if self._buf_reader is None or self._buf_reader.closed:
-            self._buf_reader = open(self._path, "rb")
-            logging.debug(f"Opened reading stream to {self._path}.")
-            return
+        try:
+            if self._buf_reader is None or self._buf_reader.closed:
+                self._buf_reader = open(self._path, "rb")
+                logging.debug(f"Opened reading stream to {self._path}.")
+                return
+        except FileNotFoundError as err:
+            logging.error(f"File not found: {self._path}")
+            raise err
 
     def _make_fraction(self, index: int) -> None:
         """Read from the object-file and generate a fraction"""
@@ -97,12 +66,9 @@ class Fractionator:
             Fractionator.CHUNK_SIZE
         )  # don't use peek, as it does not advance the position in the file
         
-        # Generate an IV and encrypt the chunk
-        self._iv = secrets.token_bytes(
-            16
-        )  # initialization vector for AES-256 encryption
-        encrypted_data = self.do_aes_operation(data, True)  # encrypt chunk
-
+        # generate iv and encrypt the chunk
+        encrypted_data = self._encrypt_chunk(data)
+        
         # Create a fraction instance and add it to self._fractions
         fraction = Fraction(
             magic=Fractionator.MAGIC, index=index, iv=self._iv, data=encrypted_data
@@ -110,6 +76,13 @@ class Fractionator:
         self._fractions.append(fraction)
         logging.debug(f"Created fraction #{fraction.index}")
 
+    def _encrypt_chunk(self, data: bytes) -> bytes:
+        self._iv = self._generate_iv()
+        return self.do_aes_operation(data, True)
+    
+    def _generate_iv(self) -> bytes:
+        return secrets.token_bytes(16)
+    
     def make_fractions(self) -> None:
         """Iterate through the Fractionator object file specified in self._path and generate Fraction objects"""
         size = os.path.getsize(self._path)
@@ -157,11 +130,11 @@ class Fractionator:
             with open(backup_path, "r") as f:
                 self.fraction_paths = [line.strip() for line in f]
             logging.debug(
-                f"[debug: _load_backup] Loaded {len(self.fraction_paths)} paths from backup."
+                f"Loaded {len(self.fraction_paths)} paths from backup."
             )
             
         except OSError as e:
-            logging.error(f"[error: _load_backup] Failed to load backup: {e}")
+            logging.error(f"Failed to load backup: {e}")
             return []
 
     def _clean_fraction(self, path: str):
@@ -184,12 +157,13 @@ class Fractionator:
         self.fraction_paths = []
         logging.info("Done.")
 
+    
     def do_aes_operation(self, data: bytes, op: bool) -> bytes:
         """Perform an AES-256 operation on given data (encryption [op=True]/decryption [op=False])"""
         if not self._key or not self._iv:
             raise ValueError(f"Missing key or IV (_key:{self._key}, _iv:{self._iv})")
 
-        cipher = Cipher(algorithms.AES(self._key), modes.OFB(self._iv))
+        cipher = self.cipher
         operator = cipher.encryptor() if op else cipher.decryptor()
 
         return operator.update(data) + operator.finalize()

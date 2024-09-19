@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-
+#include "fraction.h"
 extern const uint32_t crc32_tab[];
 /*
  * A function that calculates the CRC-32 based on the table above is
@@ -12,5 +12,4 @@ extern const uint32_t crc32_tab[];
  * in sys/libkern.h, where it can be inlined.
  */
 uint32_t crc32(const void *buf, size_t size);
-
 #endif // CRC32_H
