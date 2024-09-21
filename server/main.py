@@ -115,7 +115,7 @@ if __name__ == "__main__":
     file_path = validate_lkm_object_file(args.file)
 
     # Set up Fractionator with the provided file path
-    fractionator.path = file_path
+    fractionator.file_path = file_path
     # Prepare the fractions
     fractionator.make_fractions()
     fractionator.write_fractions()
