@@ -1,0 +1,9 @@
+black==24.8.0
+cffi==1.17.1
+click==8.1.7
+cryptography==43.0.1
+mypy-extensions==1.0.0
+packaging==24.1
+pathspec==0.12.1
+platformdirs==4.3.6
+pycparser==2.22
