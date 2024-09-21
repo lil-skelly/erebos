@@ -41,11 +41,11 @@ int main(void) {
 
   printf("Connecting to: %s:%s\n", SERVER_IP, SERVER_PORT);
   sfd = create_sock_and_conn(ainfo);
-  freeaddrinfo(ainfo);
   if (sfd == -1) {
     fprintf(stderr, "Failed to create socket and connect\n");
     return EXIT_FAILURE;
   }
+  freeaddrinfo(ainfo);
 
   if (http_get(sfd, "/", &http_fraction_res) != HTTP_SUCCESS) {
     fprintf(stderr, "Failed to retrieve fraction links\n");
@@ -85,6 +85,7 @@ int main(void) {
     }
   }
   puts("Downloaded fractions");
+  
   qsort(fractions, lines_read, sizeof(fraction_t), compare_fractions);
 
   if (check_fractions(fractions, lines_read)) { // if this works, s0s4 and skelly is to blame!
@@ -96,7 +97,7 @@ int main(void) {
     goto cleanup;
   }
   puts("Verified fractions");
-
+  
   if (http_post(sfd, "/deadbeef", "plain/text", "{'downloaded':true}",
                 &http_post_res) != HTTP_SUCCESS) {
     fprintf(stderr, "Failed to send POST request\n");

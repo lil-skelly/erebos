@@ -7,6 +7,7 @@ from http.server import HTTPStatus, SimpleHTTPRequestHandler, test
 import io
 import os
 
+
 class PlainListingHTTPRequestHandler(SimpleHTTPRequestHandler):
     """Lists the links to the files in the given directory in plain text"""
 
@@ -52,7 +53,7 @@ class PlainListingHTTPRequestHandler(SimpleHTTPRequestHandler):
         return f
 
 
-def start_server(ServerClass, port: int=8000, bind=None):
+def start_server(ServerClass, port: int = 8000, bind=None):
     test(
         HandlerClass=PlainListingHTTPRequestHandler,
         ServerClass=ServerClass,
