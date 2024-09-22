@@ -3,18 +3,19 @@ import logging
 import os
 from typing import Optional
 
-from cryptography.hazmat.primitives.ciphers import algorithms
+from cryptography.hazmat.primitives.ciphers import algorithms, modes
 
 from fraction import Fraction
 import utils
 
 
-class Fractionator(utils.AES_CFB_HELPER):
+class Fractionator(utils.AES_WITH_IV_HELPER):
     MAGIC: int = 0xDEADBEEF
     CHUNK_SIZE: int = 8192
     FRACTION_PATH_LEN: int = 16
     algorithm = algorithms.AES256
-
+    mode = modes.CBC
+    
     def __init__(self, file_path: str, out_path: str, key: bytes) -> None:
         """Prepare a Fractionator object for reading and generating fractions."""
         self.file_path: str = file_path
@@ -26,7 +27,7 @@ class Fractionator(utils.AES_CFB_HELPER):
 
         self._buf_reader: Optional[io.BufferedReader] = None
 
-        super().__init__(key, self.algorithm)
+        super().__init__(key, self.algorithm, self.mode)
 
     def open_reading_stream(self) -> None:
         """Open a stream for reading the object file."""
