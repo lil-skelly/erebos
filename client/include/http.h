@@ -7,6 +7,7 @@
 #include "sock.h"
 #include "utils.h"
 
+#include "log.h"
 // error codes
 #define HTTP_SUCCESS 0
 #define HTTP_SOCKET_ERR -1
@@ -26,6 +27,7 @@ typedef struct {
 void  http_free(http_res_t *res);
 
 int   http_get(int sfd, const char *path, http_res_t *res);
+/* Keeping in case we end up using it sometime */
 int   http_post(int sfd,const char* path,const char *content_type, const char* parameters, http_res_t *res);
 
 long  parse_http_status_code(const char *buf);

@@ -15,7 +15,7 @@ class Fractionator(utils.AES_WITH_IV_HELPER):
     FRACTION_PATH_LEN: int = 16
     algorithm = algorithms.AES256
     mode = modes.CBC
-    
+
     def __init__(self, file_path: str, out_path: str, key: bytes) -> None:
         """Prepare a Fractionator object for reading and generating fractions."""
         self.file_path: str = file_path
