@@ -9,13 +9,13 @@ int download_fraction(int sfd, char *url, fraction_t *fraction) {
   // Parse the URL to get the path
   path = get_path_from_url(url);
   if (!path) {
-    fprintf(stderr, "Invalid URL: %s\n", url);
+    log_error("Invalid URL: %s\n", url);
     return 1;
   }
 
   // Perform the HTTP GET request
   if (http_get(sfd, path, &res) != HTTP_SUCCESS) {
-    fprintf(stderr, "Failed to download: %s\n", url);
+    log_error("Failed to download: %s\n", url);
     return 1;
   }
 
@@ -45,7 +45,7 @@ int fraction_parse(char *data, size_t size, fraction_t *fraction) {
 
   // Ensure the data size is sufficient
   if (size < HEADER_SIZE) {
-    fprintf(stderr, "Insufficient size: %lu\n", size);
+    log_error("Insufficient size: %lu\n", size);
     return 1;
   
   }
@@ -59,7 +59,7 @@ int fraction_parse(char *data, size_t size, fraction_t *fraction) {
 
     // Check the magic number
     if (!check_magic(magic)) {
-      fprintf(stderr, "Wrong magic number: %02x\n", magic);
+      log_error("Wrong magic number: %02x\n", magic);
       return 1;
     }
 
@@ -67,7 +67,7 @@ int fraction_parse(char *data, size_t size, fraction_t *fraction) {
     data_size = size - HEADER_SIZE;
     fraction->data = malloc(data_size);
     if (!fraction->data) {
-      fprintf(stderr, "Failed to allocate data for fraction\n");
+      log_error("Failed to allocate data for fraction\n");
       return 1;
     }
     // Set the extracted values in the fraction structure
@@ -93,15 +93,19 @@ int compare_fractions(const void *a, const void *b) {
 }
 
 void print_fraction(fraction_t fraction) {
-  printf("Magic: 0x%08x\n", fraction.magic);
-  printf("Index: %u\n", fraction.index);
-  printf("IV: ");
-  for (size_t i = 0; i < sizeof(fraction.iv); i++) {
-    printf("%02x ", (unsigned char)fraction.iv[i]);
-  }
-  printf("\n");
-  printf("CRC-32: 0x%08x\n", fraction.crc);
-  printf("Data size: %lu\n\n", fraction.data_size);
+    log_debug("Magic: 0x%08x\n", fraction.magic);
+    log_debug("Index: %u\n", fraction.index);
+    if (log_get_level() == LOG_DEBUG) {
+      char iv_str[sizeof(fraction.iv) * 3] = {
+          0}; // 2 characters for hex + 1 for space
+      for (size_t i = 0; i < sizeof(fraction.iv); i++) {
+        snprintf(iv_str + i * 3, 4, "%02x ", (unsigned char)fraction.iv[i]);
+      }
+      log_debug("IV: %s\n", iv_str);
+    }
+
+    log_debug("CRC-32: 0x%08x\n", fraction.crc);
+    log_debug("Data size: %lu\n\n", fraction.data_size);
 }
 
 int calc_crc(fraction_t *frac){
@@ -123,9 +127,9 @@ int calc_crc(fraction_t *frac){
     uint32_t calculated_crc = crc32(buffer, offset);
 
     if (calculated_crc != frac->crc) {
-        printf("Checksum incorrect\n");
-        printf("Checksum generated: %08X\n", calculated_crc);
-        printf("Checksum from fraction: %08X\n\n", frac->crc);
+        log_warn("Checksum incorrect\n");
+        log_warn("Checksum generated: %08X\n", calculated_crc);
+        log_warn("Checksum from fraction: %08X\n\n", frac->crc);
     }
 
   return calculated_crc == frac->crc;
@@ -135,7 +139,7 @@ int check_fractions(fraction_t *fraction, size_t size){
   int res = 0;
   for(size_t i = 0; i < size; i++){
     if (!calc_crc(&fraction[i])) {
-      fprintf(stderr, "Failed to validate integrity of fraction:\n");
+      log_error("Failed to validate integrity of fraction:\n");
       print_fraction(fraction[i]);
       res += 1;
     }

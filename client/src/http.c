@@ -22,11 +22,9 @@ const char *POST_REQ_TEMPLATE = "POST %s HTTP/1.1\r\nContent-Type: "
 
 /* Log a http_res_t */
 void print_http_res(const http_res_t *res) {
-  printf("--[ STATUS CODE: %i ]--\n", res->status_code);
-  printf("--[ REQUEST ]--\n%s\n--[ REQUEST ]--\n", res->request);
-  // res->data is not null-terminated so use write here
-  write(1, res->data, res->size);
-  puts("--[ END ]--\n");
+  log_debug("[STATUS CODE: %i ]", res->status_code);
+  log_debug("[REQUEST]\n%s", res->request);
+  log_debug("[END REQUEST]\n");
 }
 
 /* Parse HTTP status code */
@@ -74,7 +72,7 @@ int parse_http_body(int sfd, char *src, char *dest, long content_length, long to
  
   body_start = strstr(src, "\r\n\r\n");
   if (body_start == NULL) {
-    perror("Header delimeter not found\n");
+    log_error("Header delimeter not found\n");
     return HTTP_INVALID_RESPONSE;
   }
   body_start += 4;
@@ -88,7 +86,7 @@ int parse_http_body(int sfd, char *src, char *dest, long content_length, long to
   if (content_length > received_length) {
     left_length = content_length - received_length;
     if (recv_response(sfd, dest + received_length, left_length) < 0) {
-      perror("Failed to receive left over data\n");
+      log_error("Failed to receive left over data\n");
       return HTTP_SOCKET_ERR;
     }
   }
@@ -116,12 +114,12 @@ int http_post(int sfd, const char *path,
   strncpy(res->request, req_buffer, req_buf_len - 1);
   
   if (send_request(sfd, req_buffer) < 0) {
-    perror("Error: failed to send request\n");
+    log_error("Error: failed to send request\n");
     return HTTP_SOCKET_ERR;
   }
 
-  if (HTTP_VERBOSE)
-    puts("Sent POST request");
+
+  log_debug("Sent POST request\n");
 
   /* Receive response from server */
   total_bytes = 0;
@@ -170,8 +168,8 @@ int http_post(int sfd, const char *path,
     return HTTP_INVALID_RESPONSE;
   }
   
-  if (HTTP_VERBOSE)
-    puts("Parsed response");
+
+  log_debug("Parsed response\n");
   if (HTTP_VERBOSE > 1)
     print_http_res(res);
 
@@ -198,12 +196,12 @@ int http_get(int sfd, const char *path, http_res_t *res) {
   req_buf_len = strlen(request_buf);
 
   if (send_request(sfd, request_buf) < 0) {
-    perror("Error: failed to send request\n");
+    log_error("Error: failed to send request\n");
     err = HTTP_SOCKET_ERR;
     goto error;
   }
 
-  VERBOSE_ONLY(puts("Sent GET request");)
+  log_debug("Sent GET request\n");
 
   res->request = malloc(req_buf_len + 1);
   if (res->request == NULL) {
@@ -237,7 +235,7 @@ int http_get(int sfd, const char *path, http_res_t *res) {
 
   // by this time buf will be null terminated
 
-  VERBOSE_ONLY(puts("Received data from server");)
+  log_debug("Received data from server");
 
   /* Check if response starts with "HTTP" */
   if (memcmp(buf, "HTTP", 4)) {
@@ -273,9 +271,9 @@ int http_get(int sfd, const char *path, http_res_t *res) {
     goto error;
   }
 
-  VERBOSE_ONLY(puts("Parsed response");)
+  log_debug("Parsed response");
 
-  VERY_VERBOSE_ONLY(print_http_res(res);)
+  print_http_res(res);
 
   return HTTP_SUCCESS;
 

@@ -10,6 +10,8 @@
 
 #include <endian.h>
 
+#include "log.h"
+
 #define MAGIC 0xdeadbeef
 
 typedef struct {
