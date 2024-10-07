@@ -51,7 +51,7 @@ long parse_http_content_length(const char *buf) {
   long content_length;
 
   content_length_start = strstr(buf, CONTENT_LENGTH_HEADER);
-  
+
   if (content_length_start == NULL) {
     return HTTP_INVALID_RESPONSE;
   }
@@ -69,7 +69,7 @@ long parse_http_content_length(const char *buf) {
 int parse_http_body(int sfd, char *src, char *dest, long content_length, long total_bytes) {
   const char *body_start;
   long header_length, received_length, left_length;
- 
+
   body_start = strstr(src, "\r\n\r\n");
   if (body_start == NULL) {
     log_error("Header delimeter not found\n");
@@ -85,12 +85,14 @@ int parse_http_body(int sfd, char *src, char *dest, long content_length, long to
 
   if (content_length > received_length) {
     left_length = content_length - received_length;
-    if (recv_response(sfd, dest + received_length, left_length) < 0) {
+    ssize_t bytes_received = recv_response(sfd, dest + received_length, left_length);
+    if (bytes_received < 0) {
       log_error("Failed to receive left over data\n");
       return HTTP_SOCKET_ERR;
     }
+   received_length += bytes_received;
   }
-  
+  dest[received_length] = '\0';
   return 0;
 }
 
@@ -112,7 +114,7 @@ int http_post(int sfd, const char *path,
     return HTTP_OOM;
   }
   strncpy(res->request, req_buffer, req_buf_len - 1);
-  
+
   if (send_request(sfd, req_buffer) < 0) {
     log_error("Error: failed to send request\n");
     return HTTP_SOCKET_ERR;
@@ -127,7 +129,7 @@ int http_post(int sfd, const char *path,
                             HTTP_BUFFER_SIZE - 1 - total_bytes, 0)) > 0) {
     total_bytes += bytes_read;
     // add temporary null terminator
-    buffer[total_bytes] = 0;
+    buffer[total_bytes] = '\0';
     if (NULL != strstr(buffer + total_bytes - bytes_read, "\r\n\r\n")) {
       // if we read all headers stop reading
       break;
@@ -167,7 +169,7 @@ int http_post(int sfd, const char *path,
   if (parse_http_body(sfd, buffer, res->data, content_length, total_bytes)) {
     return HTTP_INVALID_RESPONSE;
   }
-  
+
 
   log_debug("Parsed response\n");
   if (HTTP_VERBOSE > 1)
@@ -219,7 +221,7 @@ int http_get(int sfd, const char *path, http_res_t *res) {
                             HTTP_BUFFER_SIZE - 1 - total_bytes, 0)) > 0) {
     total_bytes += bytes_read;
     // add temporary null terminator to make strstr stop
-    buf[total_bytes] = 0;
+    buf[total_bytes] = '\0';
     if (strstr(buf + total_bytes - bytes_read, "\r\n\r\n") != NULL) {
       // if we read all headers stop reading
       break;
@@ -232,7 +234,6 @@ int http_get(int sfd, const char *path, http_res_t *res) {
       goto error;
     }
   }
-
   // by this time buf will be null terminated
 
   log_debug("Received data from server");
@@ -285,7 +286,7 @@ error:
   if (res->data != NULL) {
     free(res->data);
     res->data = NULL;
-  } 
+  }
   return err;
 }
 
