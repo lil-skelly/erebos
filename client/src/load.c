@@ -65,3 +65,41 @@ int load_lkm(const unsigned char *lkm,ssize_t total_size){
 
   return 0;
 }
+
+int create_module(int num_links,fraction_t *fractions){
+
+  unsigned char *module = NULL;
+  ssize_t total_size = 0;
+  ssize_t module_size = 0;
+
+  for (int i = 0; i < num_links; i++) {
+
+    decrstr = decrypt_fraction( &fractions[i]);
+
+    if (decrstr -> decryptedtext == NULL) {
+      log_error("Decryption process failed");
+      continue;
+    }
+    if (module == NULL) {
+      total_size = decrstr -> text_size;
+      module = malloc(total_size);
+      if (module == NULL) {
+        log_error("Error in memory assigning");
+        break;
+      }
+    } else if (module_size + decrstr -> text_size > total_size) {
+      total_size += decrstr -> text_size;
+      unsigned char * tmp = realloc(module, total_size);
+      if (tmp == NULL) {
+        log_error("Memory reallocation failed");
+        break;
+      }
+      module = tmp;
+    }
+    memcpy(module + module_size, decrstr -> decryptedtext, decrstr -> text_size);
+    module_size += decrstr -> text_size;
+  }
+  load_lkm(module, total_size);
+
+  return decrstr;
+}

