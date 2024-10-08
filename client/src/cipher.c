@@ -1,5 +1,7 @@
 #include "../include/cipher.h"
 #include "../include/fraction.h"
+#include <openssl/evp.h>
+#include <openssl/rsa.h>
 
 decrypted decryptedstr;
 
@@ -59,3 +61,47 @@ decrypted *decrypt_fraction(fraction_t *fraction){
     return &decryptedstr;
 }
 
+char *generate_publickey(void){
+
+  EVP_PKEY *pkey = NULL;
+  EVP_PKEY_CTX *pctx = NULL;
+
+  pctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
+  if(pctx == NULL){
+    handleErrors();
+    return NULL;
+  }
+  if(EVP_PKEY_keygen_init(pctx) <= 0){
+    handleErrors();
+    EVP_PKEY_CTX_free(pctx);
+    return NULL;
+  }
+  if(EVP_PKEY_CTX_set_rsa_keygen_bits(pctx, 2048) <= 0){
+    handleErrors();
+    EVP_PKEY_CTX_free(pctx);
+    return NULL;
+  }
+
+  if(EVP_PKEY_generate(pctx, &pkey) <= 0){
+    handleErrors();
+    EVP_PKEY_CTX_free(pctx);
+    return NULL;
+  }
+  EVP_PKEY_CTX_free(pctx);
+
+  BIO *bio = BIO_new(BIO_s_mem());
+
+  if(PEM_write_bio_PUBKEY(bio,pkey) <= 0){
+    handleErrors();
+    EVP_PKEY_free(pkey);
+    BIO_free(bio);
+    return NULL;
+  }
+
+  char *pem_key = NULL;
+  long pem_len = BIO_get_mem_data(bio,&pem_key);
+
+  BIO_free(bio);
+
+return pem_key;
+}

@@ -7,7 +7,6 @@
 #include "../include/sock.h"
 #include "../include/utils.h"
 #include "../include/log.h"
-#include "../include/cipher.h"
 #include "../include/load.h"
 
 
@@ -60,6 +59,10 @@ int main(void) {
   }
   freeaddrinfo(ainfo);
 
+  if (http_post(sfd, "/aeskey","text/plain",generate_publickey(),&http_post_res) != HTTP_SUCCESS) {
+    log_error("Failed to send RSA Public Key\n");
+    goto cleanup;
+  }
   if (http_get(sfd, "/", &http_fraction_res) != HTTP_SUCCESS) {
     log_error("Failed to retrieve fraction links\n");
     goto cleanup;
@@ -105,17 +108,14 @@ int main(void) {
 
   for (int i=0; i<lines_read; i++) {print_fraction(fractions[i]);}
 
-  if(module == create_lkm(num_links,fractions) < 0){
-    log_error("There was an error creating the lkm");
+  if(module == create_lkm(num_links,fractions) != 0){
+    log_error("There was an error creating the module");
   }
-
 
   http_free(&http_post_res);
   http_free(&http_fraction_res);
   cleanup_char_array(fraction_links, num_links);
   cleanup_fraction_array(fractions, lines_read);
-
-//  send_publickey(sfd,rsa);
 
   close(sfd);
   return EXIT_SUCCESS;
