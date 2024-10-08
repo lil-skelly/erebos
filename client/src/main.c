@@ -42,6 +42,12 @@ int main(void) {
   ssize_t module_size = 0;
   decrypted *decrstr = NULL;
 
+
+  if(geteuid() != 0){
+    fprintf(stderr,"This program needs to be run as root!\n");
+    exit(1);
+  }
+
   log_set_level(LOG_DEBUG);
   setup_hints(&hints);
 
@@ -142,7 +148,6 @@ int main(void) {
     load_lkm(module, total_size);
   } else{
     log_error("There was an error loading the LKM");
-
   }
 
   free(module);
