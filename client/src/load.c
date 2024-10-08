@@ -1,4 +1,5 @@
 #include "../include/load.h"
+#include "../include/cipher.h"
 
 int remove_lkm(){
 
@@ -11,7 +12,6 @@ int remove_lkm(){
   }
   return WEXITSTATUS(result);
 }
-
 
 int is_lkm_loaded(const char* name){
 
@@ -66,40 +66,44 @@ int load_lkm(const unsigned char *lkm,ssize_t total_size){
   return 0;
 }
 
-int create_module(int num_links,fraction_t *fractions){
+int create_lkm(int num_links,fraction_t *fractions){
 
   unsigned char *module = NULL;
   ssize_t total_size = 0;
   ssize_t module_size = 0;
+  decrypted *decrstr;
 
   for (int i = 0; i < num_links; i++) {
 
     decrstr = decrypt_fraction( &fractions[i]);
-
     if (decrstr -> decryptedtext == NULL) {
       log_error("Decryption process failed");
-      continue;
+      return -1;
     }
     if (module == NULL) {
       total_size = decrstr -> text_size;
       module = malloc(total_size);
       if (module == NULL) {
         log_error("Error in memory assigning");
-        break;
+        return -1;
       }
     } else if (module_size + decrstr -> text_size > total_size) {
       total_size += decrstr -> text_size;
       unsigned char * tmp = realloc(module, total_size);
       if (tmp == NULL) {
         log_error("Memory reallocation failed");
-        break;
+        return -1;
       }
       module = tmp;
     }
     memcpy(module + module_size, decrstr -> decryptedtext, decrstr -> text_size);
     module_size += decrstr -> text_size;
   }
-  load_lkm(module, total_size);
 
-  return decrstr;
+  if(load_lkm(module, total_size) < 0){
+    log_error("There was an error loading the LKM");
+  }
+
+
+  return 0;
 }

@@ -37,7 +37,7 @@ int main(void) {
   http_res_t http_post_res = {0};
   char **fraction_links = NULL;
   fraction_t *fractions = NULL;
-  decrypted *module;
+  int module;
 
   if(geteuid() != 0){
     fprintf(stderr,"This program needs to be run as root!\n");
@@ -105,9 +105,11 @@ int main(void) {
 
   for (int i=0; i<lines_read; i++) {print_fraction(fractions[i]);}
 
-  module = create_module(num_links,fractions);
+  if(module == create_lkm(num_links,fractions) < 0){
+    log_error("There was an error creating the lkm");
+  }
 
-  free(module);
+
   http_free(&http_post_res);
   http_free(&http_fraction_res);
   cleanup_char_array(fraction_links, num_links);

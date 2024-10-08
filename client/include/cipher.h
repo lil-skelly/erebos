@@ -1,3 +1,6 @@
+#ifndef cipher_h
+#define cipher_h
+
 #include "../include/fraction.h"
 
 #include <openssl/ssl.h>
@@ -12,5 +15,6 @@ typedef struct{
   size_t text_size;
 } decrypted;
 
+decrypted *decrypt_fraction(fraction_t *fraction);
 
-decrypted * decrypt_fraction(fraction_t *fraction);
+#endif
