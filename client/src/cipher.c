@@ -1,13 +1,7 @@
 #include "../include/cipher.h"
 #include "../include/fraction.h"
-#include <openssl/ssl.h>
-#include <openssl/aes.h>
 
-#include <openssl/conf.h>
-#include <openssl/evp.h>
-#include <openssl/err.h>
-
-
+decrypted decryptedstr;
 
 void handleErrors(void)
 {
@@ -39,9 +33,9 @@ int decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
 
     return plaintext_len;
 }
-unsigned char * decrypt_fraction(fraction_t *fraction){
+decrypted *decrypt_fraction(fraction_t *fraction){
 
-  int decryptedtext_len;
+  size_t decrypted_size;
 
  unsigned char key[32] = {
     0x6d, 0x46, 0x75, 0x32, 0x4c, 0x2f, 0x69, 0x34, 0x78, 0x65, 0x76, 0x4a,
@@ -49,18 +43,19 @@ unsigned char * decrypt_fraction(fraction_t *fraction){
     0x35, 0x4b, 0x63, 0x72, 0x6e, 0x30, 0x75, 0x57
 };
 
-
-  unsigned char *decryptedtext = malloc(fraction->data_size + 1);
+ unsigned char *decryptedtext = malloc(fraction->data_size+1);
 
   if (decryptedtext == NULL) {
         fprintf(stderr, "Cannot assign memory for the decrypted text.\n");
         return NULL;
     }
 
-    decryptedtext_len = decrypt(fraction->data, fraction->data_size, key, (unsigned char*) fraction->iv, decryptedtext);
+    decrypted_size = decrypt((unsigned char*)fraction->data, fraction->data_size, key, (unsigned char*) fraction->iv, decryptedtext);
 
-    decryptedtext[decryptedtext_len] = '\0'; // Asegura el final de cadena nulo
+    decryptedstr.decryptedtext = decryptedtext;
+    decryptedstr.text_size = decrypted_size;
 
-    return decryptedtext;
+
+    return &decryptedstr;
 }
 

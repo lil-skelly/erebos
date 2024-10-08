@@ -92,6 +92,7 @@ int parse_http_body(int sfd, char *src, char *dest, long content_length, long to
     }
    received_length += bytes_received;
   }
+
   dest[received_length] = '\0';
   return 0;
 }
