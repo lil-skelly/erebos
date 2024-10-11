@@ -95,6 +95,7 @@ int main(void) {
   }
 
   for (int i = 0; i < lines_read; i++) {
+    log_debug("Downloading %s", fraction_links[i]);
     if (download_fraction(sfd, fraction_links[i], &fractions[i]) != 0) {
       log_error("Failed to download fraction");
       goto cleanup;
