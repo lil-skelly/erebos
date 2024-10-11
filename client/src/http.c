@@ -232,6 +232,7 @@ static size_t recv_headers(int sfd, char *buf, size_t buf_size) {
 static int process_response_headers(http_res_t *res, int sfd, const char *buf,
                                     size_t total_bytes) {
   long status_code, content_length;
+  int ret;
 
   /* Check if response starts with "HTTP" */
   if (memcmp(buf, "HTTP", 4)) {
@@ -261,9 +262,10 @@ static int process_response_headers(http_res_t *res, int sfd, const char *buf,
     return HTTP_OOM;
   }
 
-  if (recv_http_body(sfd, buf, res->data, content_length, total_bytes) < 0) {
+  ret = recv_http_body(sfd, buf, res->data, content_length, total_bytes);
+  if (ret < 0) {
     free(res->data);
-    return HTTP_INVALID_RESPONSE;
+    return ret;
   }
 
   return HTTP_SUCCESS;
