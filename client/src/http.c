@@ -10,109 +10,31 @@ const char *POST_REQ_TEMPLATE = "POST %s HTTP/1.1\r\nContent-Type: "
                                 "%s\r\nContent-Length: %d\r\n%s\r\n\r\n";
 
 // forward declare helper functions and leave them at the end
-static void print_http_res(const http_res_t *res);
 static long parse_http_status_code(const char *buf);
 static long parse_http_content_length(const char *buf);
 static int recv_http_body(int sfd, const char *src, char *dest,
                           long content_length, long total_bytes);
 static size_t recv_headers(int sfd, char *buf, size_t buf_size);
-static int process_response_headers(http_res_t *res, int sfd, const char *buf,
-                                    size_t total_bytes);
+static int process_response_headers(int sfd, const char *buf,
+                                    size_t total_bytes, http_res_t *res);
+static int do_request(int sfd, const char *request_buf, http_res_t *res);
 
 int http_post(int sfd, const char *path, const char *content_type,
-              const char *parameters, http_res_t *res) {
+              const char *body, http_res_t *res) {
   char req_buffer[HTTP_BUFFER_SIZE];
-  char buffer[HTTP_BUFFER_SIZE];
-  long total_bytes;
-  size_t req_buf_len;
-  int ret;
 
   snprintf(req_buffer, HTTP_BUFFER_SIZE, POST_REQ_TEMPLATE, path, content_type,
-           strlen(parameters), parameters);
-  req_buf_len = strlen(req_buffer);
+           strlen(body), body);
 
-  if (sock_send_string(sfd, req_buffer) < 0) {
-    log_error("Error: failed to send request");
-    return HTTP_SOCKET_ERR;
-  }
-
-  res->request = malloc(req_buf_len + 1);
-  if (res->request == NULL) {
-    return HTTP_OOM;
-  }
-  strncpy(res->request, req_buffer, req_buf_len + 1);
-
-  log_debug("Sent POST request");
-
-  /* Receive response from server */
-  total_bytes = recv_headers(sfd, buffer, HTTP_BUFFER_SIZE);
-  if (total_bytes < 0) {
-    free(res->request);
-    return total_bytes;
-  }
-
-  ret = process_response_headers(res, sfd, buffer, total_bytes);
-  if (ret < 0) {
-    free(res->request);
-    return ret;
-  }
-
-  log_debug("Received body from server");
-
-  return HTTP_SUCCESS;
+  return do_request(sfd, req_buffer, res);
 }
 
 int http_get(int sfd, const char *path, http_res_t *res) {
   char request_buf[HTTP_BUFFER_SIZE]; // use separate buffer for the request
-  char buf[HTTP_BUFFER_SIZE];
-  long total_bytes;
-  size_t req_buf_len;
-  int ret;
-
-  /* send request */
-  // The functions snprintf() and vsnprintf() write at most size bytes
-  // (including the terminating null byte ('\0')) to str. no need to subtract
-  // one
+  
   snprintf(request_buf, HTTP_BUFFER_SIZE, GET_REQ_TEMPLATE, path);
-  req_buf_len = strlen(request_buf);
-
-  if (sock_send_string(sfd, request_buf) < 0) {
-    log_error("Error: failed to send request");
-    return HTTP_SOCKET_ERR;
-  }
-
-  log_debug("Sent GET request");
-
-  res->request = malloc(req_buf_len + 1);
-  if (res->request == NULL) {
-    return HTTP_OOM;
-  }
-
-  // strncpy will write at most req_buf_len + 1 bytes into res->request
-  // it will write all the req_buf_len non-null bytes and then write a null byte
-  // in the last one
-  strncpy(res->request, request_buf, req_buf_len + 1);
-
-  /* receive response from server */
-  total_bytes = recv_headers(sfd, buf, HTTP_BUFFER_SIZE);
-  if (total_bytes < 0) {
-    free(res->request);
-    return total_bytes;
-  }
-
-  log_debug("Received headers from server");
-
-  ret = process_response_headers(res, sfd, buf, total_bytes);
-  if (ret < 0) {
-    free(res->request);
-    return ret;
-  }
-
-  log_debug("Received body from server");
-
-  print_http_res(res);
-
-  return HTTP_SUCCESS;
+  
+  return do_request(sfd, request_buf, res);
 }
 
 /* Properly free a http_res_t structure */
@@ -124,13 +46,6 @@ void http_free(http_res_t *res) {
 
   res->size = 0;
   res->status_code = 0;
-}
-
-/* Log a http_res_t */
-static void print_http_res(const http_res_t *res) {
-  log_debug("[STATUS CODE: %i ]", res->status_code);
-  log_debug("[REQUEST]\n%s", res->request);
-  log_debug("[END REQUEST]");
 }
 
 /* Parse HTTP status code */
@@ -229,8 +144,8 @@ static size_t recv_headers(int sfd, char *buf, size_t buf_size) {
   return total_bytes;
 }
 
-static int process_response_headers(http_res_t *res, int sfd, const char *buf,
-                                    size_t total_bytes) {
+static int process_response_headers(int sfd, const char *buf,
+                                    size_t total_bytes, http_res_t *res) {
   long status_code, content_length;
   int ret;
 
@@ -267,6 +182,45 @@ static int process_response_headers(http_res_t *res, int sfd, const char *buf,
     free(res->data);
     return ret;
   }
+
+  return HTTP_SUCCESS;
+}
+
+static int do_request(int sfd, const char *request_buf, http_res_t *res) {
+  char buffer[HTTP_BUFFER_SIZE];
+  long total_bytes;
+  size_t req_buf_len;
+  int ret;
+
+  req_buf_len = strlen(request_buf);
+
+  if (sock_send_string(sfd, request_buf) < 0) {
+    log_error("Error: failed to send request");
+    return HTTP_SOCKET_ERR;
+  }
+
+  res->request = malloc(req_buf_len + 1);
+  if (res->request == NULL) {
+    return HTTP_OOM;
+  }
+  strncpy(res->request, request_buf, req_buf_len + 1);
+
+  log_debug("Sent POST request");
+
+  /* Receive response from server */
+  total_bytes = recv_headers(sfd, buffer, HTTP_BUFFER_SIZE);
+  if (total_bytes < 0) {
+    free(res->request);
+    return total_bytes;
+  }
+
+  ret = process_response_headers(sfd, buffer, total_bytes, res);
+  if (ret < 0) {
+    free(res->request);
+    return ret;
+  }
+
+  log_debug("Received body from server");
 
   return HTTP_SUCCESS;
 }
