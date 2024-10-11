@@ -57,6 +57,7 @@ decrypted_t *decrypt_fraction(fraction_t *fraction) {
 
   if (decr == NULL) {
     log_error("Could not allocate memory for decrypted struct");
+    free(decrypted_text);
     return NULL;
   }
 
