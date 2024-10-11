@@ -199,12 +199,12 @@ int http_get(int sfd, const char *path, http_res_t *res) {
   req_buf_len = strlen(request_buf);
 
   if (send_request(sfd, request_buf) < 0) {
-    log_error("Error: failed to send request\n");
+    log_error("Error: failed to send request");
     err = HTTP_SOCKET_ERR;
     goto error;
   }
 
-  log_debug("Sent GET request\n");
+  log_debug("Sent GET request");
 
   res->request = malloc(req_buf_len + 1);
   if (res->request == NULL) {

