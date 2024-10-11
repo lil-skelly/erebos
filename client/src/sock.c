@@ -1,4 +1,5 @@
 #include "../include/sock.h"
+#include "../include/log.h"
 
 /* Wrapper for getaddrinfo, handles error */
 int h_getaddrinfo(const char *ip, const char *port, struct addrinfo *hints,
@@ -7,7 +8,7 @@ int h_getaddrinfo(const char *ip, const char *port, struct addrinfo *hints,
   res = getaddrinfo(ip, port, hints, ainfo);
 
   if (res != 0) {
-    fprintf(stderr, "Error: getaddrinfo: %s\n", gai_strerror(res));
+    log_error("Error: getaddrinfo: %s", gai_strerror(res));
     return res;
   }
   return 0;
@@ -18,7 +19,7 @@ int create_socket(struct addrinfo *ainfo) {
   int sfd;
   sfd = socket(ainfo->ai_family, ainfo->ai_socktype, ainfo->ai_protocol);
   if (sfd == -1) {
-    perror("Error creating socket");
+    log_error("Error creating socket");
     return -1;
   }
   return sfd;
@@ -43,7 +44,7 @@ ssize_t sock_recv_bytes(int sfd, char *buffer, size_t buffer_size) {
       break; // avoid buffer overflow :P
   }
   if (bytes_recv == -1) {
-    perror("Error receiving response");
+    log_error("Error receiving response");
   }
   return total_bytes;
 }
@@ -58,7 +59,7 @@ void setup_hints(struct addrinfo *hints) {
 /* Connect the socket to the server */
 int sock_connect(int sfd, struct addrinfo *ainfo) {
   if (connect(sfd, ainfo->ai_addr, ainfo->ai_addrlen) == -1) {
-    perror("Error connecting socket");
+    log_error("Error connecting socket");
     close(sfd);
     return -1;
   }

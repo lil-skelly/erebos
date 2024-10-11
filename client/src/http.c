@@ -32,7 +32,7 @@ int http_post(int sfd, const char *path, const char *content_type,
   req_buf_len = strlen(req_buffer);
 
   if (sock_send_string(sfd, req_buffer) < 0) {
-    log_error("Error: failed to send request\n");
+    log_error("Error: failed to send request");
     return HTTP_SOCKET_ERR;
   }
 
@@ -42,7 +42,7 @@ int http_post(int sfd, const char *path, const char *content_type,
   }
   strncpy(res->request, req_buffer, req_buf_len + 1);
 
-  log_debug("Sent POST request\n");
+  log_debug("Sent POST request");
 
   /* Receive response from server */
   total_bytes = recv_headers(sfd, buffer, HTTP_BUFFER_SIZE);
@@ -130,7 +130,7 @@ void http_free(http_res_t *res) {
 static void print_http_res(const http_res_t *res) {
   log_debug("[STATUS CODE: %i ]", res->status_code);
   log_debug("[REQUEST]\n%s", res->request);
-  log_debug("[END REQUEST]\n");
+  log_debug("[END REQUEST]");
 }
 
 /* Parse HTTP status code */
@@ -179,7 +179,7 @@ static int recv_http_body(int sfd, const char *src, char *dest,
 
   body_start = strstr(src, "\r\n\r\n");
   if (body_start == NULL) {
-    log_error("Header delimeter not found\n");
+    log_error("Header delimeter not found");
     return HTTP_INVALID_RESPONSE;
   }
   body_start += 4;
@@ -195,7 +195,7 @@ static int recv_http_body(int sfd, const char *src, char *dest,
     ssize_t bytes_received =
         sock_recv_bytes(sfd, dest + received_length, left_length);
     if (bytes_received < 0) {
-      log_error("Failed to receive left over data\n");
+      log_error("Failed to receive left over data");
       return HTTP_SOCKET_ERR;
     }
     received_length += bytes_received;

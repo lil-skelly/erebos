@@ -38,7 +38,7 @@ int main(void) {
   ssize_t module_size;
 
   if (geteuid() != 0) {
-    log_error("This program needs to be run as root!\n");
+    log_error("This program needs to be run as root!");
     exit(1);
   }
 
@@ -46,14 +46,14 @@ int main(void) {
   setup_hints(&hints);
 
   if (h_getaddrinfo(SERVER_IP, SERVER_PORT, &hints, &ainfo) != 0) {
-    log_error("Failed to resolve server address\n");
+    log_error("Failed to resolve server address");
     return EXIT_FAILURE;
   }
 
   printf("Connecting to: %s:%s\n", SERVER_IP, SERVER_PORT);
   sfd = create_sock_and_conn(ainfo);
   if (sfd == -1) {
-    log_error("Failed to create socket and connect\n");
+    log_error("Failed to create socket and connect");
     return EXIT_FAILURE;
   }
   freeaddrinfo(ainfo);
@@ -65,7 +65,7 @@ int main(void) {
   //}
 
   if (http_get(sfd, "/", &http_fraction_res) != HTTP_SUCCESS) {
-    log_error("Failed to retrieve fraction links\n");
+    log_error("Failed to retrieve fraction links");
     goto cleanup;
   }
 
@@ -76,7 +76,7 @@ int main(void) {
 
   fraction_links = calloc(num_links, sizeof(char *));
   if (!fraction_links) {
-    log_error("Failed to allocate memory for fraction links\n");
+    log_error("Failed to allocate memory for fraction links");
     goto cleanup;
   }
 
@@ -84,19 +84,19 @@ int main(void) {
   int lines_read =
       split_fraction_links(http_fraction_res.data, fraction_links, num_links);
   if (lines_read < 0) {
-    log_error("Failed to split fraction links\n");
+    log_error("Failed to split fraction links");
     goto cleanup;
   }
 
   fractions = malloc(lines_read * sizeof(fraction_t));
   if (!fractions) {
-    log_error("Failed to allocate memory for fractions\n");
+    log_error("Failed to allocate memory for fractions");
     goto cleanup;
   }
 
   for (int i = 0; i < lines_read; i++) {
     if (download_fraction(sfd, fraction_links[i], &fractions[i]) != 0) {
-      log_error("Failed to download fraction\n");
+      log_error("Failed to download fraction");
       goto cleanup;
     }
   }
@@ -105,7 +105,7 @@ int main(void) {
   qsort(fractions, lines_read, sizeof(fraction_t), compare_fractions);
 
   if (check_fractions(fractions, lines_read) != 0) { // if this works, s0s4 and skelly is to blame!
-    log_error("Fractions check failed\n");
+    log_error("Fractions check failed");
     goto cleanup;
   }
 
@@ -122,7 +122,7 @@ int main(void) {
   }
 
   if (load_lkm(module, module_size) < 0) {
-    log_error("Error loading LKM\n");
+    log_error("Error loading LKM");
     goto cleanup;
   }
 

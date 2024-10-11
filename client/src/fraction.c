@@ -93,19 +93,19 @@ int compare_fractions(const void *a, const void *b) {
 }
 
 void print_fraction(fraction_t fraction) {
-    log_debug("Magic: 0x%08x\n", fraction.magic);
-    log_debug("Index: %u\n", fraction.index);
+    log_debug("Magic: 0x%08x", fraction.magic);
+    log_debug("Index: %u", fraction.index);
     if (log_get_level() == LOG_DEBUG) {
       char iv_str[sizeof(fraction.iv) * 3] = {
           0}; // 2 characters for hex + 1 for space
       for (size_t i = 0; i < sizeof(fraction.iv); i++) {
         snprintf(iv_str + i * 3, 4, "%02x ", (unsigned char)fraction.iv[i]);
       }
-      log_debug("IV: %s\n", iv_str);
+      log_debug("IV: %s", iv_str);
     }
 
-    log_debug("CRC-32: 0x%08x\n", fraction.crc);
-    log_debug("Data size: %lu\n\n", fraction.data_size);
+    log_debug("CRC-32: 0x%08x", fraction.crc);
+    log_debug("Data size: %lu", fraction.data_size);
 }
 
 int calc_crc(fraction_t *frac){
@@ -127,9 +127,9 @@ int calc_crc(fraction_t *frac){
     uint32_t calculated_crc = crc32(buffer, offset);
 
     if (calculated_crc != frac->crc) {
-        log_warn("Checksum incorrect\n");
-        log_warn("Checksum generated: %08X\n", calculated_crc);
-        log_warn("Checksum from fraction: %08X\n\n", frac->crc);
+        log_warn("Checksum incorrect");
+        log_warn("Checksum generated: %08X", calculated_crc);
+        log_warn("Checksum from fraction: %08X", frac->crc);
     }
 
   return calculated_crc == frac->crc;
@@ -139,7 +139,7 @@ int check_fractions(fraction_t *fraction, size_t size){
   int res = 0;
   for(size_t i = 0; i < size; i++){
     if (!calc_crc(&fraction[i])) {
-      log_error("Failed to validate integrity of fraction:\n");
+      log_error("Failed to validate integrity of fraction:");
       print_fraction(fraction[i]);
       res += 1;
     }
