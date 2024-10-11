@@ -85,7 +85,7 @@ int parse_http_body(int sfd, char *src, char *dest, long content_length, long to
 
   if (content_length > received_length) {
     left_length = content_length - received_length;
-    ssize_t bytes_received = recv_response(sfd, dest + received_length, left_length);
+    ssize_t bytes_received = sock_recv_bytes(sfd, dest + received_length, left_length);
     if (bytes_received < 0) {
       log_error("Failed to receive left over data\n");
       return HTTP_SOCKET_ERR;
@@ -116,7 +116,7 @@ int http_post(int sfd, const char *path,
   }
   strncpy(res->request, req_buffer, req_buf_len - 1);
 
-  if (send_request(sfd, req_buffer) < 0) {
+  if (sock_send_string(sfd, req_buffer) < 0) {
     log_error("Error: failed to send request\n");
     return HTTP_SOCKET_ERR;
   }
@@ -198,7 +198,7 @@ int http_get(int sfd, const char *path, http_res_t *res) {
   snprintf(request_buf, HTTP_BUFFER_SIZE, GET_REQ_TEMPLATE, path);
   req_buf_len = strlen(request_buf);
 
-  if (send_request(sfd, request_buf) < 0) {
+  if (sock_send_string(sfd, request_buf) < 0) {
     log_error("Error: failed to send request");
     err = HTTP_SOCKET_ERR;
     goto error;

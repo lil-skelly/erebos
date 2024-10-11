@@ -1,4 +1,5 @@
 #include "../include/sock.h"
+
 /* Wrapper for getaddrinfo, handles error */
 int h_getaddrinfo(const char *ip, const char *port, struct addrinfo *hints,
                   struct addrinfo **ainfo) {
@@ -25,13 +26,13 @@ int create_socket(struct addrinfo *ainfo) {
 
 
 /* Wrapper for `send` to simplify sending requests */
-ssize_t send_request(int sfd, const char *request) {
+ssize_t sock_send_string(int sfd, const char *request) {
   return send(sfd, request, strlen(request), 0);
 }
 
 /* Receive response by using consecutive recv calls to fill the buffer.
  * Returns the bytes read */
-ssize_t recv_response(int sfd, char *buffer, size_t buffer_size) {
+ssize_t sock_recv_bytes(int sfd, char *buffer, size_t buffer_size) {
   ssize_t total_bytes, bytes_recv;
   total_bytes = 0;
 
