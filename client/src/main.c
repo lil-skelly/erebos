@@ -101,16 +101,10 @@ int main(void) {
       goto cleanup;
     }
   }
+  
   log_info("Downloaded fractions");
 
   qsort(fractions, lines_read, sizeof(fraction_t), compare_fractions);
-
-  if (check_fractions(fractions, lines_read) != 0) { // if this works, s0s4 and skelly is to blame!
-    log_error("Fractions check failed");
-    goto cleanup;
-  }
-
-  log_info("Verified fractions");
 
   for (int i = 0; i < lines_read; i++) {
     print_fraction(fractions[i]);

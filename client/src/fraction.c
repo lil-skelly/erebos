@@ -35,6 +35,7 @@ int download_fraction(int sfd, char *url, fraction_t *fraction) {
 }
 
 int fraction_parse(char *data, size_t size, fraction_t *fraction) {
+  int calc_crc(fraction_t *frac);
   const size_t UINT32_SIZE = sizeof(uint32_t);
   const size_t IV_SIZE = 16; // 16 bytes for the IV
   const size_t MAGIC_SIZE = UINT32_SIZE;
@@ -77,7 +78,7 @@ int fraction_parse(char *data, size_t size, fraction_t *fraction) {
     fraction->data_size = data_size;
     memcpy(fraction->data, data + HEADER_SIZE, data_size);
 
-    return 0;
+    return calc_crc(fraction);
 }
 
 int check_magic(uint32_t magic) {
@@ -109,42 +110,34 @@ void print_fraction(fraction_t fraction) {
 }
 
 int calc_crc(fraction_t *frac){
-    uint8_t buffer[sizeof(frac->magic) + sizeof(frac->index) + sizeof(frac->iv) + frac->data_size];
-    size_t offset = 0;
+  bool result;
+  uint8_t buffer[sizeof(frac->magic) + sizeof(frac->index) + sizeof(frac->iv) +
+                 frac->data_size];
+  size_t offset = 0;
 
-    memcpy(buffer + offset, &frac->magic, sizeof(frac->magic));
-    offset += sizeof(frac->magic);
+  memcpy(buffer + offset, &frac->magic, sizeof(frac->magic));
+  offset += sizeof(frac->magic);
 
-    memcpy(buffer + offset, &frac->index, sizeof(frac->index));
-    offset += sizeof(frac->index);
+  memcpy(buffer + offset, &frac->index, sizeof(frac->index));
+  offset += sizeof(frac->index);
 
-    memcpy(buffer + offset, frac->iv, sizeof(frac->iv));
-    offset += sizeof(frac->iv);
+  memcpy(buffer + offset, frac->iv, sizeof(frac->iv));
+  offset += sizeof(frac->iv);
 
-    memcpy(buffer + offset, frac->data, frac->data_size);
-    offset += frac->data_size;
+  memcpy(buffer + offset, frac->data, frac->data_size);
+  offset += frac->data_size;
 
-    uint32_t calculated_crc = crc32(buffer, offset);
+  uint32_t calculated_crc = crc32(buffer, offset);
+  result = calculated_crc != frac->crc;
 
-    if (calculated_crc != frac->crc) {
-        log_warn("Checksum incorrect");
-        log_warn("Checksum generated: %08X", calculated_crc);
-        log_warn("Checksum from fraction: %08X", frac->crc);
-    }
-
-  return calculated_crc == frac->crc;
-}
-
-int check_fractions(fraction_t *fraction, size_t size){
-  int res = 0;
-  for(size_t i = 0; i < size; i++){
-    if (!calc_crc(&fraction[i])) {
-      log_error("Failed to validate integrity of fraction:");
-      print_fraction(fraction[i]);
-      res += 1;
-    }
+  if (result) {
+    log_warn("Checksum incorrect");
+    log_warn("Checksum generated: %08X", calculated_crc);
+    log_warn("Checksum from fraction: %08X\n", frac->crc);
+  } else {
+      log_debug("[%i] Checksum correct", frac->index);
   }
-  return res;
+  return result;
 }
 
 void fraction_free(fraction_t *fraction) {
