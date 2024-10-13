@@ -1,4 +1,6 @@
 #include "../include/sock.h"
+#include "../include/log.h"
+
 /* Wrapper for getaddrinfo, handles error */
 int h_getaddrinfo(const char *ip, const char *port, struct addrinfo *hints,
                   struct addrinfo **ainfo) {
@@ -6,7 +8,7 @@ int h_getaddrinfo(const char *ip, const char *port, struct addrinfo *hints,
   res = getaddrinfo(ip, port, hints, ainfo);
 
   if (res != 0) {
-    fprintf(stderr, "Error: getaddrinfo: %s\n", gai_strerror(res));
+    log_error("Error: getaddrinfo: %s", gai_strerror(res));
     return res;
   }
   return 0;
@@ -17,7 +19,7 @@ int create_socket(struct addrinfo *ainfo) {
   int sfd;
   sfd = socket(ainfo->ai_family, ainfo->ai_socktype, ainfo->ai_protocol);
   if (sfd == -1) {
-    perror("Error creating socket");
+    log_error("Error creating socket");
     return -1;
   }
   return sfd;
@@ -25,13 +27,13 @@ int create_socket(struct addrinfo *ainfo) {
 
 
 /* Wrapper for `send` to simplify sending requests */
-ssize_t send_request(int sfd, const char *request) {
+ssize_t sock_send_string(int sfd, const char *request) {
   return send(sfd, request, strlen(request), 0);
 }
 
 /* Receive response by using consecutive recv calls to fill the buffer.
  * Returns the bytes read */
-ssize_t recv_response(int sfd, char *buffer, size_t buffer_size) {
+ssize_t sock_recv_bytes(int sfd, char *buffer, size_t buffer_size) {
   ssize_t total_bytes, bytes_recv;
   total_bytes = 0;
 
@@ -42,7 +44,7 @@ ssize_t recv_response(int sfd, char *buffer, size_t buffer_size) {
       break; // avoid buffer overflow :P
   }
   if (bytes_recv == -1) {
-    perror("Error receiving response");
+    log_error("Error receiving response");
   }
   return total_bytes;
 }
@@ -57,7 +59,7 @@ void setup_hints(struct addrinfo *hints) {
 /* Connect the socket to the server */
 int sock_connect(int sfd, struct addrinfo *ainfo) {
   if (connect(sfd, ainfo->ai_addr, ainfo->ai_addrlen) == -1) {
-    perror("Error connecting socket");
+    log_error("Error connecting socket");
     close(sfd);
     return -1;
   }

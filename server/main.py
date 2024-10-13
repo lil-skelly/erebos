@@ -65,9 +65,10 @@ def validate_lkm_object_file(file_path: str) -> str:
 
 def generate_aes_key() -> bytes:
     """Generate a 256-bit AES key."""
-    key = secrets.token_bytes(32)
-    logging.debug("Generated AES-256 key.")
-    return key
+#    key = secrets.token_bytes(32)
+#    logging.debug("Generated AES-256 key.")
+    key = "mFu2L/i4xevJ4N36rDt55ZO45Kcrn0uW"
+    return key.encode('utf-8')
 
 
 def handle_cleanup(fractionator: Fractionator, backup_path: str) -> None:

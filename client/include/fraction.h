@@ -20,7 +20,7 @@ typedef struct {
     char iv[16];
 
     uint32_t crc;
-    
+
     size_t data_size;
     char *data;
 } fraction_t;

@@ -9,13 +9,13 @@ int download_fraction(int sfd, char *url, fraction_t *fraction) {
   // Parse the URL to get the path
   path = get_path_from_url(url);
   if (!path) {
-    log_error("Invalid URL: %s\n", url);
+    log_error("Invalid URL: %s", url);
     return 1;
   }
 
   // Perform the HTTP GET request
   if (http_get(sfd, path, &res) != HTTP_SUCCESS) {
-    log_error("Failed to download: %s\n", url);
+    log_error("Failed to download: %s", url);
     return 1;
   }
 
@@ -46,7 +46,7 @@ int fraction_parse(char *data, size_t size, fraction_t *fraction) {
 
   // Ensure the data size is sufficient
   if (size < HEADER_SIZE) {
-    log_error("Insufficient size: %lu\n", size);
+    log_error("Insufficient size: %lu", size);
     return 1;
   
   }
@@ -60,7 +60,7 @@ int fraction_parse(char *data, size_t size, fraction_t *fraction) {
 
     // Check the magic number
     if (!check_magic(magic)) {
-      log_error("Wrong magic number: %02x\n", magic);
+      log_error("Wrong magic number: %02x", magic);
       return 1;
     }
 
@@ -68,7 +68,7 @@ int fraction_parse(char *data, size_t size, fraction_t *fraction) {
     data_size = size - HEADER_SIZE;
     fraction->data = malloc(data_size);
     if (!fraction->data) {
-      log_error("Failed to allocate data for fraction\n");
+      log_error("Failed to allocate data for fraction");
       return 1;
     }
     // Set the extracted values in the fraction structure
@@ -106,7 +106,7 @@ void print_fraction(fraction_t fraction) {
     }
 
     log_debug("CRC-32: 0x%08x", fraction.crc);
-    log_debug("Data size: %lu\n", fraction.data_size);
+    log_debug("Data size: %lu", fraction.data_size);
 }
 
 int calc_crc(fraction_t *frac){
