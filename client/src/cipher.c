@@ -1,13 +1,12 @@
 #include "../include/cipher.h"
 #include "../include/fraction.h"
-#include <stdint.h>
+#include <openssl/aes.h>
 #include <openssl/evp.h>
 #include <openssl/rsa.h>
+#include <stdint.h>
 #include <string.h>
 
-static void print_errors(void) {
-  ERR_print_errors_fp(stderr);
-}
+static void print_errors(void) { ERR_print_errors_fp(stderr); }
 
 int base64_decode(const char *b64_input, unsigned char **output,
                   size_t *output_len) {
@@ -37,9 +36,8 @@ int base64_decode(const char *b64_input, unsigned char **output,
   return 0;
 }
 
-static int decrypt(unsigned char *ciphertext, int ciphertext_len,
-                   unsigned char *key, unsigned char *iv,
-                   unsigned char *plaintext) {
+ssize_t cipher_decrypt(uint8_t *ciphertext, size_t ciphertext_len, uint8_t *key,
+                       uint8_t *iv, uint8_t *plaintext) {
   EVP_CIPHER_CTX *ctx;
   int len;
   int plaintext_len;
@@ -54,7 +52,8 @@ static int decrypt(unsigned char *ciphertext, int ciphertext_len,
     return -1;
   }
 
-  if (1 != EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len)) {
+  if (1 !=
+      EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len)) {
     print_errors();
     return -1;
   }
@@ -69,48 +68,6 @@ static int decrypt(unsigned char *ciphertext, int ciphertext_len,
   EVP_CIPHER_CTX_free(ctx);
 
   return plaintext_len;
-}
-
-decrypted_t *decrypt_fraction(fraction_t *fraction, unsigned char *key ) {
-
-  decrypted_t *decr;
-  size_t decrypted_size;
-
-  unsigned char *decrypted_text = malloc(fraction->data_size);
-
-  if (decrypted_text == NULL) {
-    log_error("Cannot assign memory for the decrypted text");
-    return NULL;
-  }
-
-  decrypted_size = decrypt(fraction->data, fraction->data_size,
-                           key, fraction->iv, decrypted_text);
-
-  if (decrypted_size < 0) {
-    log_error("Could not decrypt the data");
-    free(decrypted_text);
-    return NULL;
-  }
-
-  decr = malloc(sizeof(decrypted_t));
-
-  if (decr == NULL) {
-    log_error("Could not allocate memory for decrypted struct");
-    free(decrypted_text);
-    return NULL;
-  }
-
-  decr->decrypted_data = decrypted_text;
-  decr->data_size = decrypted_size;
-
-  return decr;
-}
-
-void decrypted_free(decrypted_t *decrypted) {
-  if (decrypted == NULL) return;
-
-  free(decrypted->decrypted_data);
-  free(decrypted);
 }
 
 EVP_PKEY *generate_rsa_private_key(void) {

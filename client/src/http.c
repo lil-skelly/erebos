@@ -19,7 +19,7 @@ static long parse_http_status_code(const char *buf);
 static long parse_http_content_length(const char *buf);
 static int recv_http_body(int sfd, const char *src, char *dest,
                           long content_length, long total_bytes);
-static size_t recv_headers(int sfd, char *buf, size_t buf_size);
+static ssize_t recv_headers(int sfd, char *buf, size_t buf_size);
 static int process_response_headers(int sfd, const char *buf,
                                     size_t total_bytes, http_res_t *res);
 static int do_request(int sfd, const char *request_buf, http_res_t *res);
@@ -129,7 +129,7 @@ static int recv_http_body(int sfd, const char *src, char *dest,
   return HTTP_SUCCESS;
 }
 
-static size_t recv_headers(int sfd, char *buf, size_t buf_size) {
+static ssize_t recv_headers(int sfd, char *buf, size_t buf_size) {
   size_t bytes_read;
   size_t total_bytes = 0;
   while ((bytes_read = recv(sfd, buf + total_bytes, buf_size - 1 - total_bytes,
