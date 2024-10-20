@@ -26,7 +26,7 @@ uint8_t *decrypt_lkm(fraction_t *fractions, int fractions_count, ssize_t *len,un
     }
 
     if (module == NULL) {
-      total_size = decr->text_size;
+      total_size = decr->data_size;
       module = malloc(total_size);
       if (module == NULL) {
         log_error("Error in memory assigning");
@@ -34,7 +34,7 @@ uint8_t *decrypt_lkm(fraction_t *fractions, int fractions_count, ssize_t *len,un
         return NULL;
       }
     } else {
-      total_size += decr->text_size;
+      total_size += decr->data_size;
       uint8_t *tmp = realloc(module, total_size);
       if (tmp == NULL) {
         log_error("Memory reallocation failed");
@@ -44,8 +44,8 @@ uint8_t *decrypt_lkm(fraction_t *fractions, int fractions_count, ssize_t *len,un
       }
       module = tmp;
     }
-    memcpy(module + module_size, decr->decrypted_text, decr->text_size);
-    module_size += decr->text_size;
+    memcpy(module + module_size, decr->decrypted_data, decr->data_size);
+    module_size += decr->data_size;
 
     decrypted_free(decr);
   }

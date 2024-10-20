@@ -1,12 +1,12 @@
 #include "../include/cipher.h"
 #include "../include/fraction.h"
+#include <stdint.h>
 #include <openssl/evp.h>
 #include <openssl/rsa.h>
 #include <string.h>
 
-static void handle_openssl_error(void) {
+static void print_errors(void) {
   ERR_print_errors_fp(stderr);
-  abort();
 }
 
 int base64_decode(const char *b64_input, unsigned char **output,
@@ -44,18 +44,26 @@ static int decrypt(unsigned char *ciphertext, int ciphertext_len,
   int len;
   int plaintext_len;
 
-  if (!(ctx = EVP_CIPHER_CTX_new()))
-    handle_openssl_error();
+  if (!(ctx = EVP_CIPHER_CTX_new())) {
+    print_errors();
+    return -1;
+  }
 
-  if (1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv))
-    handle_openssl_error();
+  if (1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv)) {
+    print_errors();
+    return -1;
+  }
 
-  if (1 != EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len))
-    handle_openssl_error();
+  if (1 != EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len)) {
+    print_errors();
+    return -1;
+  }
   plaintext_len = len;
 
-  if (1 != EVP_DecryptFinal_ex(ctx, plaintext + len, &len))
-    handle_openssl_error();
+  if (1 != EVP_DecryptFinal_ex(ctx, plaintext + len, &len)) {
+    print_errors();
+    return -1;
+  }
   plaintext_len += len;
 
   EVP_CIPHER_CTX_free(ctx);
@@ -65,6 +73,7 @@ static int decrypt(unsigned char *ciphertext, int ciphertext_len,
 
 decrypted_t *decrypt_fraction(fraction_t *fraction, unsigned char *key ) {
 
+  decrypted_t *decr;
   size_t decrypted_size;
 
   unsigned char *decrypted_text = malloc(fraction->data_size);
@@ -74,10 +83,16 @@ decrypted_t *decrypt_fraction(fraction_t *fraction, unsigned char *key ) {
     return NULL;
   }
 
-  decrypted_size = decrypt((unsigned char *)fraction->data, fraction->data_size,
-                           key, (unsigned char *)fraction->iv, decrypted_text);
+  decrypted_size = decrypt(fraction->data, fraction->data_size,
+                           key, fraction->iv, decrypted_text);
 
-  decrypted_t *decr = malloc(sizeof(decrypted_t));
+  if (decrypted_size < 0) {
+    log_error("Could not decrypt the data");
+    free(decrypted_text);
+    return NULL;
+  }
+
+  decr = malloc(sizeof(decrypted_t));
 
   if (decr == NULL) {
     log_error("Could not allocate memory for decrypted struct");
@@ -85,14 +100,16 @@ decrypted_t *decrypt_fraction(fraction_t *fraction, unsigned char *key ) {
     return NULL;
   }
 
-  decr->decrypted_text = decrypted_text;
-  decr->text_size = decrypted_size;
+  decr->decrypted_data = decrypted_text;
+  decr->data_size = decrypted_size;
 
   return decr;
 }
 
 void decrypted_free(decrypted_t *decrypted) {
-  free(decrypted->decrypted_text);
+  if (decrypted == NULL) return;
+
+  free(decrypted->decrypted_data);
   free(decrypted);
 }
 
@@ -102,22 +119,22 @@ EVP_PKEY *generate_rsa_private_key(void) {
 
   pctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
   if (pctx == NULL) {
-    handle_openssl_error();
+    print_errors();
     return NULL;
   }
   if (EVP_PKEY_keygen_init(pctx) <= 0) {
-    handle_openssl_error();
+    print_errors();
     EVP_PKEY_CTX_free(pctx);
     return NULL;
   }
   if (EVP_PKEY_CTX_set_rsa_keygen_bits(pctx, 2048) <= 0) {
-    handle_openssl_error();
+    print_errors();
     EVP_PKEY_CTX_free(pctx);
     return NULL;
   }
 
   if (EVP_PKEY_generate(pctx, &pkey) <= 0) {
-    handle_openssl_error();
+    print_errors();
     EVP_PKEY_CTX_free(pctx);
     return NULL;
   }
@@ -128,12 +145,12 @@ EVP_PKEY *generate_rsa_private_key(void) {
 char *write_rsa_public_key(EVP_PKEY *pkey) {
   BIO *bio = BIO_new(BIO_s_mem());
   if (bio == NULL) {
-    handle_openssl_error();
+    print_errors();
     return NULL;
   }
 
   if (PEM_write_bio_PUBKEY(bio, pkey) <= 0) {
-    handle_openssl_error();
+    print_errors();
     BIO_free(bio);
     return NULL;
   }
@@ -161,26 +178,26 @@ unsigned char *decrypt_rsa_oaep_evp(EVP_PKEY *pkey,
                                     size_t *decrypted_data_len) {
   EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(pkey, NULL);
   if (!ctx) {
-    handle_openssl_error();
+    print_errors();
     return NULL;
   }
 
   if (EVP_PKEY_decrypt_init(ctx) <= 0) {
-    handle_openssl_error();
+    print_errors();
     EVP_PKEY_CTX_free(ctx);
     return NULL;
   }
 
   // Set RSA OAEP padding
   if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) <= 0) {
-    handle_openssl_error();
+    print_errors();
     EVP_PKEY_CTX_free(ctx);
     return NULL;
   }
 
   // Set the OAEP label hashing algorithm to SHA-256
   if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, EVP_sha256()) <= 0) {
-    handle_openssl_error();
+    print_errors();
     EVP_PKEY_CTX_free(ctx);
     return NULL;
   }
@@ -188,7 +205,7 @@ unsigned char *decrypt_rsa_oaep_evp(EVP_PKEY *pkey,
   // Determine buffer length for decrypted data
   if (EVP_PKEY_decrypt(ctx, NULL, decrypted_data_len, encrypted_data,
                        encrypted_data_len) <= 0) {
-    handle_openssl_error();
+    print_errors();
     EVP_PKEY_CTX_free(ctx);
     return NULL;
   }
@@ -203,7 +220,7 @@ unsigned char *decrypt_rsa_oaep_evp(EVP_PKEY *pkey,
   // Perform decryption
   if (EVP_PKEY_decrypt(ctx, decrypted_data, decrypted_data_len, encrypted_data,
                        encrypted_data_len) <= 0) {
-    handle_openssl_error();
+    print_errors();
     free(decrypted_data);
     EVP_PKEY_CTX_free(ctx);
     return NULL;

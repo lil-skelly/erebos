@@ -44,6 +44,8 @@ int http_get(int sfd, const char *path, http_res_t *res) {
 
 /* Properly free a http_res_t structure */
 void http_free(http_res_t *res) {
+  if (res == NULL) return;
+
   free(res->data);
   res->data = NULL;
   free(res->request);

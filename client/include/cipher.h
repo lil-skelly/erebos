@@ -14,8 +14,8 @@
 #include <openssl/pem.h>
 
 typedef struct{
-  unsigned char *decrypted_text;
-  size_t text_size;
+  unsigned char *decrypted_data;
+  size_t data_size;
 } decrypted_t;
 
 decrypted_t *decrypt_fraction(fraction_t *fraction,unsigned char *key);
