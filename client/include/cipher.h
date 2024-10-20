@@ -1,5 +1,5 @@
-#ifndef cipher_h
-#define cipher_h
+#ifndef CIPHER_H
+#define CIPHER_H
 
 #define OPENSSL_API_COMPAT 30000
 
