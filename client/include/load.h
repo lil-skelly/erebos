@@ -1,13 +1,4 @@
 #include <stdint.h>
-#define _GNU_SOURCE
-#include <linux/module.h>
-#include <stdio.h>
-#include <sys/mman.h>
-#include <sys/syscall.h>
-#include <unistd.h>
-
-#include <stdlib.h>
-#include <string.h>
 
 #include "../include/cipher.h"
 #include "../include/log.h"
