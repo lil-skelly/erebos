@@ -26,7 +26,7 @@ int download_fraction(int sfd, char *url, fraction_t *fraction) {
   }
 
   *fraction = downloaded_fraction;
-  
+
 
   // Cleanup
   http_free(&res);
@@ -48,7 +48,7 @@ int fraction_parse(char *data, size_t size, fraction_t *fraction) {
   if (size < HEADER_SIZE) {
     log_error("Insufficient size: %lu", size);
     return 1;
-  
+
   }
 
     // Extract fields from data buffer with endianess handling

