@@ -18,8 +18,10 @@ typedef struct{
   size_t text_size;
 } decrypted_t;
 
-decrypted_t *decrypt_fraction(fraction_t *fraction);
-char *generate_publickey(void);
+decrypted_t *decrypt_fraction(fraction_t *fraction,unsigned char *key);
+EVP_PKEY *generate_keypair(void);
+char *write_public_key(EVP_PKEY *pkey);
+char *write_private_key(EVP_PKEY *pkey);
 void decrypted_free(decrypted_t *decrypted);
-
+unsigned char *decrypt_msg(EVP_PKEY *pkey, unsigned char *in);
 #endif
