@@ -27,26 +27,17 @@ class ErebosHTTPRequestHandler(SimpleHTTPRequestHandler):
     def do_POST(self):
         # Read the content length and the raw data from the POST request
         content_length = int(self.headers["Content-Length"])  # Get the size of data
-        post_data = self.rfile.read(content_length)  # Read the request body (bytes)
-
-        # Parse the JSON data
-        try:
-            form = json.loads(post_data.decode())
-            public_key_pem = form.get("public_key")
-        except json.JSONDecodeError:
-            self.send_error(400, "Invalid JSON format")
-            logging.error("Received invalid JSON format from client.")
-            return
-
+        public_key_pem = self.rfile.read(content_length)  # Read the request body (bytes)
+        print(public_key_pem)
         if public_key_pem is None:
-            self.send_error(400, "Missing public_key field")
-            logging.error("Request is missing the required 'public_key' field.")
+            self.send_error(400, "Missing public key")
+            logging.error("Request is empty")
             return
 
         # Load the public key provided by the client
         try:
             client_public_key = serialization.load_pem_public_key(
-                bytes.fromhex(public_key_pem)
+                public_key_pem
             )
         except Exception as e:
             self.send_error(400, f"Invalid public key format: {str(e)}")

@@ -61,12 +61,6 @@ int main(void) {
   }
   freeaddrinfo(ainfo);
 
-  // if (http_post(sfd, "/aeskey", "text/plain", generate_publickey(),
-  //               &http_post_res) != HTTP_SUCCESS) {
-  //   log_error("Failed to send RSA Public Key\n");
-  //   goto cleanup;
-  // }
-
   pkey = generate_keypair();
   if (pkey == NULL) {
     return EXIT_FAILURE;
@@ -75,22 +69,22 @@ int main(void) {
   if (public_key == NULL) {
     return EXIT_FAILURE;
   }
-/*
-  if (http_post(sfd, "/publickey", "text/plain", public_key, &http_post_res) !=
+
+  if (http_post(sfd, "/", "application/octet-stream", public_key, &http_post_res) !=
     HTTP_SUCCESS) {
-    log_error("Failed to send public key");
+    log_error("Failed to send RSA public key");
     goto cleanup;
   }
-*/
+
 // Wait for the server implmentation of the response
 
-/*  aes_key = decrypt_msg(pkey, (unsigned char *)http_post_res.data);
+  aes_key = decrypt_msg(pkey, (unsigned char *)http_post_res.data, 32);
 
   if (aes_key == NULL) {
     log_error("Failed to decrypt data from server");
     goto cleanup;
   }
-*/
+
   if (http_get(sfd, "/", &http_fraction_res) != HTTP_SUCCESS) {
     log_error("Failed to retrieve fraction links");
     goto cleanup;

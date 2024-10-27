@@ -6,8 +6,13 @@
 const char *CONTENT_LENGTH_HEADER = "Content-Length: ";
 const char *GET_REQ_TEMPLATE =
     "GET %s HTTP/1.1\r\nConnection: keep-alive\r\n\r\n";
-const char *POST_REQ_TEMPLATE = "POST %s HTTP/1.1\r\nContent-Type: "
-                                "%s\r\nContent-Length: %d\r\n%s\r\n\r\n";
+const char *POST_REQ_TEMPLATE =
+    "POST %s HTTP/1.1\r\n"
+    "Host: localhost\r\n" // Add the host
+    "Content-Type: %s\r\n"
+    "Content-Length: %d\r\n"
+    "Connection: close\r\n" // Optionally, close connection after request
+    "\r\n%s";               // Ensure the body follows after \r\n\r\n
 
 // forward declare helper functions and leave them at the end
 static long parse_http_status_code(const char *buf);

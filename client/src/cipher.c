@@ -35,14 +35,9 @@ static int decrypt(unsigned char *ciphertext, int ciphertext_len,
   return plaintext_len;
 }
 
-decrypted_t *decrypt_fraction(fraction_t *fraction,unsigned char *key ) {
+decrypted_t *decrypt_fraction(fraction_t *fraction, unsigned char *key ) {
 
   size_t decrypted_size;
-
-//    unsigned char key[32] = {0x6d, 0x46, 0x75, 0x32, 0x4c, 0x2f, 0x69, 0x34,
-//    0x78, 0x65, 0x76, 0x4a, 0x34, 0x4e, 0x33, 0x36,
-//    0x72, 0x44, 0x74, 0x35, 0x35, 0x5a, 0x4f, 0x34,
-//    0x35, 0x4b, 0x63, 0x72, 0x6e, 0x30, 0x75, 0x57};
 
   unsigned char *decrypted_text = malloc(fraction->data_size);
 
@@ -121,44 +116,52 @@ char *write_public_key(EVP_PKEY *pkey) {
   return copy;
 }
 
-unsigned char *decrypt_msg(EVP_PKEY *pkey, unsigned char *in) {
-
+unsigned char *decrypt_msg(EVP_PKEY *pkey, unsigned char *in, size_t inlen) {
   EVP_PKEY_CTX *ctx;
-  ENGINE *eng;
   unsigned char *out;
-  size_t outlen, inlen;
-  EVP_PKEY *key;
+  size_t outlen;
 
-  inlen = strlen((char *) in);
-
-  ctx = EVP_PKEY_CTX_new(pkey, eng);
+  // Create a context for the decryption operation
+  ctx = EVP_PKEY_CTX_new(pkey, NULL);
   if (!ctx) {
     handle_errors();
     return NULL;
   }
+
+  // Initialize the decryption operation.
   if (EVP_PKEY_decrypt_init(ctx) <= 0) {
     handle_errors();
     EVP_PKEY_CTX_free(ctx);
     return NULL;
   }
 
-  if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) <= 0) {
+  // Set the padding to OAEP and specify the hash function.
+  if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) <= 0 ||
+      EVP_PKEY_CTX_set_rsa_oaep_md(ctx, EVP_sha256()) <=
+          0 || // Set hash function
+      EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, EVP_sha256()) <=
+          0) { // Set MGF1 hash function
     handle_errors();
     EVP_PKEY_CTX_free(ctx);
     return NULL;
   }
+  // Determine buffer length for the output by passing NULL for the output
+  // buffer.
   if (EVP_PKEY_decrypt(ctx, NULL, &outlen, in, inlen) <= 0) {
     handle_errors();
     EVP_PKEY_CTX_free(ctx);
     return NULL;
   }
 
+  // Allocate memory for the output buffer.
   out = OPENSSL_malloc(outlen);
   if (!out) {
     handle_errors();
     EVP_PKEY_CTX_free(ctx);
     return NULL;
   }
+
+  // Perform the decryption operation.
   if (EVP_PKEY_decrypt(ctx, out, &outlen, in, inlen) <= 0) {
     handle_errors();
     EVP_PKEY_CTX_free(ctx);
@@ -166,6 +169,7 @@ unsigned char *decrypt_msg(EVP_PKEY *pkey, unsigned char *in) {
     return NULL;
   }
 
+  // Free the context.
   EVP_PKEY_CTX_free(ctx);
   return out;
 }

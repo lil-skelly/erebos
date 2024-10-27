@@ -23,5 +23,5 @@ EVP_PKEY *generate_keypair(void);
 char *write_public_key(EVP_PKEY *pkey);
 char *write_private_key(EVP_PKEY *pkey);
 void decrypted_free(decrypted_t *decrypted);
-unsigned char *decrypt_msg(EVP_PKEY *pkey, unsigned char *in);
+unsigned char *decrypt_msg(EVP_PKEY *pkey, unsigned char *in, size_t inlen);
 #endif
