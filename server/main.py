@@ -112,7 +112,6 @@ if __name__ == "__main__":
     # Initialize the fractionator
     fractionator = Fractionator(out_path, generate_aes_key())
 
-
     handle_cleanup(fractionator, backup_path)
     if args.clean:
         sys.exit(0)
@@ -124,4 +123,9 @@ if __name__ == "__main__":
     fractionator.finalize(backup_path)
 
     # Start the server for staging fractions
-    start_server(ServerClass=DualStackServer, port=args.port, bind=args.bind, aes_key=fractionator.key)
+    start_server(
+        ServerClass=DualStackServer,
+        port=args.port,
+        bind=args.bind,
+        aes_key=fractionator.key,
+    )

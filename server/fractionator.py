@@ -121,7 +121,7 @@ class Fractionator(utils.AES_WITH_IV_HELPER):
             self._buf_reader.close()
             self._buf_reader = None
             logging.debug(f"Closed stream to {self.file_path}.")
-            
+
     def finalize(self, backup_path: str) -> None:
         """Create, write and save a backup of the fractions"""
         self.make_fractions()
