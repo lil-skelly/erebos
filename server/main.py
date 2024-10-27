@@ -65,10 +65,10 @@ def validate_lkm_object_file(file_path: str) -> str:
 
 def generate_aes_key() -> bytes:
     """Generate a 256-bit AES key."""
-#    key = secrets.token_bytes(32)
-#    logging.debug("Generated AES-256 key.")
-    key = "mFu2L/i4xevJ4N36rDt55ZO45Kcrn0uW"
-    return key.encode('utf-8')
+    key = secrets.token_bytes(32)
+    logging.debug("Generated AES-256 key.")
+
+    return key
 
 
 def handle_cleanup(fractionator: Fractionator, backup_path: str) -> None:
@@ -99,28 +99,29 @@ if __name__ == "__main__":
                 request, client_address, self, directory=args.output
             )
 
+    # Parse command-line arguments
     parser = argparse.ArgumentParser(
         description="Erebos Server: Prepares and stages the LKM over HTTP"
     )
     args = handle_args(parser)
 
+    # Finalize the output/backup paths
     out_path = os.path.abspath(args.output)
     backup_path = os.path.join(out_path, BACKUP_FILENAME)
 
-    fractionator = Fractionator("", out_path, generate_aes_key())
+    # Initialize the fractionator
+    fractionator = Fractionator(out_path, generate_aes_key())
+
 
     handle_cleanup(fractionator, backup_path)
     if args.clean:
         sys.exit(0)
 
-    file_path = validate_lkm_object_file(args.file)
-
     # Set up Fractionator with the provided file path
+    file_path = validate_lkm_object_file(args.file)
     fractionator.file_path = file_path
     # Prepare the fractions
-    fractionator.make_fractions()
-    fractionator.write_fractions()
-    fractionator.save_backup(backup_path)
+    fractionator.finalize(backup_path)
 
     # Start the server for staging fractions
-    start_server(DualStackServer, args.port, args.bind)
+    start_server(ServerClass=DualStackServer, port=args.port, bind=args.bind, aes_key=fractionator.key)

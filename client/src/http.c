@@ -205,8 +205,6 @@ static int do_request(int sfd, const char *request_buf, http_res_t *res) {
   }
   strncpy(res->request, request_buf, req_buf_len + 1);
 
-  log_debug("Sent POST request");
-
   /* Receive response from server */
   total_bytes = recv_headers(sfd, buffer, HTTP_BUFFER_SIZE);
   if (total_bytes < 0) {
