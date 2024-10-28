@@ -19,9 +19,20 @@ typedef struct{
 } decrypted_t;
 
 decrypted_t *decrypt_fraction(fraction_t *fraction,unsigned char *key);
-EVP_PKEY *generate_keypair(void);
-char *write_public_key(EVP_PKEY *pkey);
-char *write_private_key(EVP_PKEY *pkey);
 void decrypted_free(decrypted_t *decrypted);
-unsigned char *decrypt_msg(EVP_PKEY *pkey, unsigned char *in, size_t inlen);
+
+/* RSA related functions */
+EVP_PKEY *generate_rsa_private_key(void);
+char *write_rsa_public_key(EVP_PKEY *pkey);
+unsigned char *decrypt_rsa_oaep_evp(
+    EVP_PKEY *pkey, const unsigned char *encrypted_data,
+    size_t encrypted_data_len,
+    size_t *decrypted_data_len);
+
+/* Base64 encoding */
+int base64_decode(
+  const char *b64_input,  
+  unsigned char **output,
+  size_t *output_len
+);
 #endif

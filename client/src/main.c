@@ -1,3 +1,4 @@
+#include <openssl/evp.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -8,7 +9,6 @@
 #include "../include/log.h"
 #include "../include/sock.h"
 #include "../include/utils.h"
-
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT "8000"
 
@@ -30,16 +30,23 @@ static void cleanup_fraction_array(fraction_t *array, int n_elem) {
 int main(void) {
   struct addrinfo hints, *ainfo;
   int sfd = -1; // to be extra professional
+  
   http_res_t http_fraction_res = {0};
   http_res_t http_post_res = {0};
+
   char **fraction_links = NULL;
   fraction_t *fractions = NULL;
+  
   uint8_t *module = NULL;
   ssize_t module_size;
+
   EVP_PKEY *pkey = NULL;
   char *private_key = NULL;
   char *public_key = NULL;
   unsigned char *aes_key = NULL;
+  size_t key_len = 0;
+  
+  
   if (geteuid() != 0) {
     log_error("This program needs to be run as root!");
     exit(1);
@@ -61,29 +68,34 @@ int main(void) {
   }
   freeaddrinfo(ainfo);
 
-  pkey = generate_keypair();
+  pkey = generate_rsa_private_key();
   if (pkey == NULL) {
     return EXIT_FAILURE;
   }
-  public_key = write_public_key(pkey);
+  public_key = write_rsa_public_key(pkey);
   if (public_key == NULL) {
     return EXIT_FAILURE;
   }
 
+  /* Receive and decrypt AES key from server */
   if (http_post(sfd, "/", "application/octet-stream", public_key, &http_post_res) !=
     HTTP_SUCCESS) {
     log_error("Failed to send RSA public key");
     goto cleanup;
   }
 
-// Wait for the server implmentation of the response
-
-  aes_key = decrypt_msg(pkey, (unsigned char *)http_post_res.data, 32);
-
+  log_info("Base64 encoded key: %s", http_post_res.data);
+  base64_decode(http_post_res.data, &aes_key, &key_len);
+  log_info("Key size (decoded): %zu", key_len);
+  
+  print_hex(aes_key, key_len);
+  
+  aes_key = decrypt_rsa_oaep_evp(pkey, (unsigned char *)http_post_res.data, key_len, &key_len);
   if (aes_key == NULL) {
     log_error("Failed to decrypt data from server");
     goto cleanup;
   }
+
 
   if (http_get(sfd, "/", &http_fraction_res) != HTTP_SUCCESS) {
     log_error("Failed to retrieve fraction links");

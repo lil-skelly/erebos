@@ -110,7 +110,8 @@ if __name__ == "__main__":
     backup_path = os.path.join(out_path, BACKUP_FILENAME)
 
     # Initialize the fractionator
-    fractionator = Fractionator(out_path, generate_aes_key())
+    key = generate_aes_key()
+    fractionator = Fractionator(out_path, key)
 
     handle_cleanup(fractionator, backup_path)
     if args.clean:

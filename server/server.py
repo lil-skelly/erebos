@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import serialization, hashes
 import io
 import os
-import json
+import base64
 import logging
 
 
@@ -28,10 +28,10 @@ class ErebosHTTPRequestHandler(SimpleHTTPRequestHandler):
         # Read the content length and the raw data from the POST request
         content_length = int(self.headers["Content-Length"])  # Get the size of data
         public_key_pem = self.rfile.read(content_length)  # Read the request body (bytes)
-        print(public_key_pem)
+        
         if public_key_pem is None:
-            self.send_error(400, "Missing public key")
-            logging.error("Request is empty")
+            self.send_error(400, "No data in request body")
+            logging.error("No data found in request body")
             return
 
         # Load the public key provided by the client
@@ -54,6 +54,7 @@ class ErebosHTTPRequestHandler(SimpleHTTPRequestHandler):
                     label=None,
                 ),
             )
+            base64_encoded_aes_key = base64.b64encode(encrypted_aes_key)
         except Exception as e:
             self.send_error(500, f"Encryption failed: {str(e)}")
             logging.error(f"Failed to encrypt the AES key: {str(e)}")
@@ -61,12 +62,14 @@ class ErebosHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         # Send HTTP response with the encrypted AES key
         self.send_response(200)
-        self.send_header("Content-type", "application/octet-stream")
-        self.send_header("Content-Length", str(len(encrypted_aes_key)))
+        self.send_header("Content-type", "plain/text")
+        self.send_header("Content-Length", str(len(base64_encoded_aes_key)))
         self.end_headers()
-        self.wfile.write(encrypted_aes_key)
-        logging.info("Successfully sent encrypted AES key to the client.")
-
+        
+        self.wfile.write(base64_encoded_aes_key)
+        
+        logging.info(f"Successfully sent encrypted AES key to the client.")
+   
     def list_directory(self, path):
         """
         Helper to produce a directory listing (absent index.html).

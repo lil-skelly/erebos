@@ -24,12 +24,11 @@ int split_fraction_links(char *data, char *data_arr[], int maxlines) {
   return lines_read;
 }
 
-void print_hex(char *str) {
-  while (*str) {
-    printf(
-        "%02x ",
-        (unsigned char)*str);
-    str++;
+void print_hex(const unsigned char *data, size_t size) {
+  for (size_t i = 0; i < size; i++) {
+    if (i%20==0) puts("");
+    printf("%02X ", data[i]);
+
   }
   printf("\n");
 }

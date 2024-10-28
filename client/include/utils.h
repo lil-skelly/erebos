@@ -34,6 +34,5 @@ static inline char *get_path_from_url(const char *url) {
 }
 
 int split_fraction_links(char *data, char *data_arr[], int maxlines);
-void print_hex(char *str);
-
+void print_hex(const unsigned char *data, size_t size);
 #endif // UTILS_H
