@@ -43,6 +43,8 @@ int main(void) {
   EVP_PKEY *pkey = NULL;
   char *private_key = NULL;
   char *public_key = NULL;
+
+  unsigned char *b64_decoded_aes_key;
   unsigned char *aes_key = NULL;
   size_t key_len = 0;
   
@@ -52,7 +54,7 @@ int main(void) {
     exit(1);
   }
 
-  log_set_level(LOG_DEBUG);
+  log_set_level(LOG_INFO);
   setup_hints(&hints);
 
   if (h_getaddrinfo(SERVER_IP, SERVER_PORT, &hints, &ainfo) != 0) {
@@ -85,17 +87,17 @@ int main(void) {
   }
 
   log_info("Base64 encoded key: %s", http_post_res.data);
-  base64_decode(http_post_res.data, &aes_key, &key_len);
+  base64_decode(http_post_res.data, &b64_decoded_aes_key, &key_len);
   log_info("Key size (decoded): %zu", key_len);
   
-  print_hex(aes_key, key_len);
   
-  aes_key = decrypt_rsa_oaep_evp(pkey, (unsigned char *)http_post_res.data, key_len, &key_len);
+  aes_key = decrypt_rsa_oaep_evp(pkey, b64_decoded_aes_key, key_len, &key_len);
   if (aes_key == NULL) {
     log_error("Failed to decrypt data from server");
     goto cleanup;
   }
 
+  print_hex(aes_key, key_len);
 
   if (http_get(sfd, "/", &http_fraction_res) != HTTP_SUCCESS) {
     log_error("Failed to retrieve fraction links");

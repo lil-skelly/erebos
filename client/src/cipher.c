@@ -127,16 +127,27 @@ EVP_PKEY *generate_rsa_private_key(void) {
 
 char *write_rsa_public_key(EVP_PKEY *pkey) {
   BIO *bio = BIO_new(BIO_s_mem());
+  if (bio == NULL) {
+    handle_openssl_error();
+    return NULL;
+  }
+
   if (PEM_write_bio_PUBKEY(bio, pkey) <= 0) {
     handle_openssl_error();
-    EVP_PKEY_free(pkey);
     BIO_free(bio);
     return NULL;
   }
 
   char *pem_key = NULL;
   long pem_len = BIO_get_mem_data(bio, &pem_key);
+
   char *copy = malloc(pem_len + 1);
+  if (copy == NULL) {
+    fprintf(stderr, "Memory allocation failed\n");
+    BIO_free(bio);
+    return NULL;
+  }
+
   memcpy(copy, pem_key, pem_len);
   copy[pem_len] = '\0';
 

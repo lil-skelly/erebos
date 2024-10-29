@@ -107,7 +107,7 @@ class ErebosHTTPRequestHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-type", f"text/plain; charset={enc}")
         self.send_header("Content-Length", str(len(encoded)))
         self.end_headers()
-
+        
         return f
 
 

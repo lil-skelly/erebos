@@ -11,7 +11,7 @@ const char *POST_REQ_TEMPLATE =
     "Host: localhost\r\n" // Add the host
     "Content-Type: %s\r\n"
     "Content-Length: %d\r\n"
-    "Connection: close\r\n" // Optionally, close connection after request
+    "Connection: Keep-Alive\r\n" // Optionally, close connection after request
     "\r\n%s";               // Ensure the body follows after \r\n\r\n
 
 // forward declare helper functions and leave them at the end
@@ -59,10 +59,12 @@ static long parse_http_status_code(const char *buf) {
   char *endptr;
   long status_code;
 
-  status_code_start = strstr(buf, " ") + 1;
+  status_code_start = strstr(buf, " ");
   if (status_code_start == NULL) {
     return HTTP_INVALID_RESPONSE;
   }
+  status_code_start +=1;
+
   status_code = strtol(status_code_start, &endptr, 10);
   if (endptr == status_code_start) {
     return HTTP_INVALID_RESPONSE;
