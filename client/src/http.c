@@ -6,8 +6,13 @@
 const char *CONTENT_LENGTH_HEADER = "Content-Length: ";
 const char *GET_REQ_TEMPLATE =
     "GET %s HTTP/1.1\r\nConnection: keep-alive\r\n\r\n";
-const char *POST_REQ_TEMPLATE = "POST %s HTTP/1.1\r\nContent-Type: "
-                                "%s\r\nContent-Length: %d\r\n%s\r\n\r\n";
+const char *POST_REQ_TEMPLATE =
+    "POST %s HTTP/1.1\r\n"
+    "Host: localhost\r\n" // Add the host
+    "Content-Type: %s\r\n"
+    "Content-Length: %d\r\n"
+    "Connection: Keep-Alive\r\n" // Optionally, close connection after request
+    "\r\n%s";               // Ensure the body follows after \r\n\r\n
 
 // forward declare helper functions and leave them at the end
 static long parse_http_status_code(const char *buf);
@@ -54,10 +59,12 @@ static long parse_http_status_code(const char *buf) {
   char *endptr;
   long status_code;
 
-  status_code_start = strstr(buf, " ") + 1;
+  status_code_start = strstr(buf, " ");
   if (status_code_start == NULL) {
     return HTTP_INVALID_RESPONSE;
   }
+  status_code_start +=1;
+
   status_code = strtol(status_code_start, &endptr, 10);
   if (endptr == status_code_start) {
     return HTTP_INVALID_RESPONSE;
@@ -204,8 +211,6 @@ static int do_request(int sfd, const char *request_buf, http_res_t *res) {
     return HTTP_OOM;
   }
   strncpy(res->request, request_buf, req_buf_len + 1);
-
-  log_debug("Sent POST request");
 
   /* Receive response from server */
   total_bytes = recv_headers(sfd, buffer, HTTP_BUFFER_SIZE);

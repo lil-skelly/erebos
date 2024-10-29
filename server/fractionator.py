@@ -4,7 +4,6 @@ import os
 from typing import Optional
 
 from cryptography.hazmat.primitives.ciphers import algorithms, modes
-
 from fraction import Fraction
 import utils
 
@@ -16,9 +15,9 @@ class Fractionator(utils.AES_WITH_IV_HELPER):
     algorithm = algorithms.AES256
     mode = modes.CBC
 
-    def __init__(self, file_path: str, out_path: str, key: bytes) -> None:
+    def __init__(self, out_path: str, key: bytes) -> None:
         """Prepare a Fractionator object for reading and generating fractions."""
-        self.file_path: str = file_path
+        self.file_path: str = NotImplemented
         self.file_size: int = 0
         self.out_path: str = out_path
 
@@ -122,6 +121,12 @@ class Fractionator(utils.AES_WITH_IV_HELPER):
             self._buf_reader.close()
             self._buf_reader = None
             logging.debug(f"Closed stream to {self.file_path}.")
+
+    def finalize(self, backup_path: str) -> None:
+        """Create, write and save a backup of the fractions"""
+        self.make_fractions()
+        self.write_fractions()
+        self.save_backup(backup_path)
 
     def __del__(self) -> None:
         self.close_stream()
