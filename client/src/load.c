@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-uint8_t *decrypt_lkm(fraction_t *fractions, int fractions_count, ssize_t *len,unsigned char *key) {
+uint8_t *decrypt_lkm(fraction_t *fractions, int fractions_count, ssize_t *len, unsigned char *key) {
 
   uint8_t *module = NULL;
   ssize_t total_size = 0;
@@ -32,7 +32,7 @@ uint8_t *decrypt_lkm(fraction_t *fractions, int fractions_count, ssize_t *len,un
   }
 
   for (int i = 0; i < fractions_count; i++) {
-    ret = cipher_decrypt(fractions[i].data, fractions[i].data_size, aes_key,
+    ret = cipher_decrypt(fractions[i].data, fractions[i].data_size, key,
                          fractions[i].iv, module + module_size);
     if (ret < 0) {
       log_error("Could not decrypt fraction at index %d", i);
@@ -40,6 +40,7 @@ uint8_t *decrypt_lkm(fraction_t *fractions, int fractions_count, ssize_t *len,un
       return NULL;
     }
     module_size += ret;
+    log_debug("Decrypted fraction %d, current module size %ld", i, module_size);
   }
 
   log_debug("Decrypted LKM. LKM size = %ld bytes, buffer size = %ld bytes, "

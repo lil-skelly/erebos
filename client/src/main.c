@@ -54,7 +54,7 @@ int main(void) {
     exit(1);
   }
 
-  log_set_level(LOG_INFO);
+  log_set_level(LOG_DEBUG);
   setup_hints(&hints);
 
   if (h_getaddrinfo(SERVER_IP, SERVER_PORT, &hints, &ainfo) != 0) {

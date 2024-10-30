@@ -15,8 +15,6 @@
 #include <openssl/provider.h>
 #include <openssl/ssl.h>
 
-extern uint8_t aes_key[32];
-
 ssize_t cipher_decrypt(uint8_t *ciphertext, size_t ciphertext_len, uint8_t *key,
                       uint8_t *iv, uint8_t *plaintext);
 
