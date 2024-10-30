@@ -27,8 +27,29 @@ static void cleanup_fraction_array(fraction_t *array, int n_elem) {
   free(array);
 }
 
-int main(void) {
+static int do_connect(void) {
   struct addrinfo hints, *ainfo;
+  int sfd;
+
+  setup_hints(&hints);
+
+  if (h_getaddrinfo(SERVER_IP, SERVER_PORT, &hints, &ainfo) != 0) {
+    log_error("Failed to resolve server address");
+    return EXIT_FAILURE;
+  }
+
+  printf("Connecting to: %s:%s\n", SERVER_IP, SERVER_PORT);
+  sfd = create_sock_and_conn(ainfo);
+  if (sfd == -1) {
+    log_error("Failed to create socket and connect");
+    return EXIT_FAILURE;
+  }
+  freeaddrinfo(ainfo);
+
+  return sfd;
+}
+
+int main(void) {
   int sfd = -1; // to be extra professional
   
   http_res_t http_fraction_res = {0};
@@ -56,20 +77,8 @@ int main(void) {
 
   init_random();
   log_set_level(LOG_DEBUG);
-  setup_hints(&hints);
 
-  if (h_getaddrinfo(SERVER_IP, SERVER_PORT, &hints, &ainfo) != 0) {
-    log_error("Failed to resolve server address");
-    return EXIT_FAILURE;
-  }
-
-  printf("Connecting to: %s:%s\n", SERVER_IP, SERVER_PORT);
-  sfd = create_sock_and_conn(ainfo);
-  if (sfd == -1) {
-    log_error("Failed to create socket and connect");
-    return EXIT_FAILURE;
-  }
-  freeaddrinfo(ainfo);
+  sfd = do_connect();
 
   pkey = generate_rsa_private_key();
   if (pkey == NULL) {
