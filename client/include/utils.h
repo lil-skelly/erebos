@@ -33,7 +33,6 @@ static inline char *get_path_from_url(const char *url) {
   return path ? (char *)path : NULL;
 }
 
-int split_fraction_links(char *data, char *data_arr[], int maxlines);
 void print_hex(const unsigned char *data, size_t size);
 
 void init_random(void);
