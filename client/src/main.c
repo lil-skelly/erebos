@@ -54,6 +54,7 @@ int main(void) {
     exit(1);
   }
 
+  init_random();
   log_set_level(LOG_DEBUG);
   setup_hints(&hints);
 
