@@ -80,7 +80,7 @@ int main(void) {
   }
 
   /* Receive and decrypt AES key from server */
-  if (http_post(sfd, "/", "application/octet-stream", public_key, &http_post_res) !=
+  if (http_post(sfd, "/", "application/octect-stream", public_key, &http_post_res) !=
     HTTP_SUCCESS) {
     log_error("Failed to send RSA public key");
     goto cleanup;
