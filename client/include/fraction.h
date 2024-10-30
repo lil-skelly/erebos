@@ -1,5 +1,5 @@
-#ifndef fractions_h
-#define fractions_h
+#ifndef FRACTION_H
+#define FRACTION_H
 
 #include <stdint.h>
 #include "http.h"
@@ -17,12 +17,12 @@
 typedef struct {
     uint32_t magic;
     uint32_t index;
-    char iv[16];
+    uint8_t iv[16];
 
     uint32_t crc;
 
     size_t data_size;
-    char *data;
+    uint8_t *data;
 } fraction_t;
 
 int download_fraction(int sfd, char *url, fraction_t *fraction);

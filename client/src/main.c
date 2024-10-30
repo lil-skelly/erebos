@@ -54,7 +54,7 @@ int main(void) {
     exit(1);
   }
 
-  log_set_level(LOG_INFO);
+  log_set_level(LOG_DEBUG);
   setup_hints(&hints);
 
   if (h_getaddrinfo(SERVER_IP, SERVER_PORT, &hints, &ainfo) != 0) {
@@ -80,7 +80,7 @@ int main(void) {
   }
 
   /* Receive and decrypt AES key from server */
-  if (http_post(sfd, "/", "application/octet-stream", public_key, &http_post_res) !=
+  if (http_post(sfd, "/", "application/octect-stream", public_key, &http_post_res) !=
     HTTP_SUCCESS) {
     log_error("Failed to send RSA public key");
     goto cleanup;
