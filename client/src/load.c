@@ -32,7 +32,7 @@ uint8_t *decrypt_lkm(fraction_t *fractions, int fractions_count, ssize_t *len, u
   }
 
   for (int i = 0; i < fractions_count; i++) {
-    ret = cipher_decrypt(fractions[i].data, fractions[i].data_size, key,
+    ret = aes_decrypt(fractions[i].data, fractions[i].data_size, key,
                          fractions[i].iv, module + module_size);
     if (ret < 0) {
       log_error("Could not decrypt fraction at index %d", i);
