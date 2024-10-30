@@ -141,6 +141,7 @@ int calc_crc(fraction_t *frac){
 }
 
 void fraction_free(fraction_t *fraction) {
+  if (fraction == NULL) return;
   free(fraction->data);
   fraction->magic = 0;
   fraction->index = 0;
