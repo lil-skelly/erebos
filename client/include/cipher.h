@@ -1,25 +1,22 @@
-#ifndef cipher_h
-#define cipher_h
+#ifndef CIPHER_H
+#define CIPHER_H
 
+#include <stdio.h>
+#include <stdint.h>
 #define OPENSSL_API_COMPAT 30000
 
 #include "../include/fraction.h"
 
-#include <openssl/ssl.h>
 #include <openssl/aes.h>
 #include <openssl/conf.h>
-#include <openssl/evp.h>
 #include <openssl/err.h>
-#include <openssl/provider.h>
+#include <openssl/evp.h>
 #include <openssl/pem.h>
+#include <openssl/provider.h>
+#include <openssl/ssl.h>
 
-typedef struct{
-  unsigned char *decrypted_text;
-  size_t text_size;
-} decrypted_t;
-
-decrypted_t *decrypt_fraction(fraction_t *fraction,unsigned char *key);
-void decrypted_free(decrypted_t *decrypted);
+ssize_t aes_decrypt(uint8_t *ciphertext, size_t ciphertext_len, uint8_t *key,
+                      uint8_t *iv, uint8_t *plaintext);
 
 /* RSA related functions */
 EVP_PKEY *generate_rsa_private_key(void);

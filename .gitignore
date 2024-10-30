@@ -1,3 +1,6 @@
+# i use this directory to run the server, let me ignore it thx
+server/tmp
+
 # ignored compiled client
 client/client
 

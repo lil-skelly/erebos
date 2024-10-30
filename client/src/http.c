@@ -19,19 +19,19 @@ static long parse_http_status_code(const char *buf);
 static long parse_http_content_length(const char *buf);
 static int recv_http_body(int sfd, const char *src, char *dest,
                           long content_length, long total_bytes);
-static size_t recv_headers(int sfd, char *buf, size_t buf_size);
-static int process_response_headers(int sfd, const char *buf,
+static ssize_t recv_headers(int sfd, char *buf, size_t buf_size);
+static int process_response(int sfd, const char *buf,
                                     size_t total_bytes, http_res_t *res);
 static int do_request(int sfd, const char *request_buf, http_res_t *res);
 
 int http_post(int sfd, const char *path, const char *content_type,
               const char *body, http_res_t *res) {
-  char req_buffer[HTTP_BUFFER_SIZE];
+  char request_buf[HTTP_BUFFER_SIZE];
 
-  snprintf(req_buffer, HTTP_BUFFER_SIZE, POST_REQ_TEMPLATE, path, content_type,
+  snprintf(request_buf, HTTP_BUFFER_SIZE, POST_REQ_TEMPLATE, path, content_type,
            strlen(body), body);
 
-  return do_request(sfd, req_buffer, res);
+  return do_request(sfd, request_buf, res);
 }
 
 int http_get(int sfd, const char *path, http_res_t *res) {
@@ -44,6 +44,8 @@ int http_get(int sfd, const char *path, http_res_t *res) {
 
 /* Properly free a http_res_t structure */
 void http_free(http_res_t *res) {
+  if (res == NULL) return;
+
   free(res->data);
   res->data = NULL;
   free(res->request);
@@ -127,7 +129,7 @@ static int recv_http_body(int sfd, const char *src, char *dest,
   return HTTP_SUCCESS;
 }
 
-static size_t recv_headers(int sfd, char *buf, size_t buf_size) {
+static ssize_t recv_headers(int sfd, char *buf, size_t buf_size) {
   size_t bytes_read;
   size_t total_bytes = 0;
   while ((bytes_read = recv(sfd, buf + total_bytes, buf_size - 1 - total_bytes,
@@ -151,7 +153,7 @@ static size_t recv_headers(int sfd, char *buf, size_t buf_size) {
   return total_bytes;
 }
 
-static int process_response_headers(int sfd, const char *buf,
+static int process_response(int sfd, const char *buf,
                                     size_t total_bytes, http_res_t *res) {
   long status_code, content_length;
   int ret;
@@ -219,7 +221,7 @@ static int do_request(int sfd, const char *request_buf, http_res_t *res) {
     return total_bytes;
   }
 
-  ret = process_response_headers(sfd, buffer, total_bytes, res);
+  ret = process_response(sfd, buffer, total_bytes, res);
   if (ret < 0) {
     free(res->request);
     return ret;

