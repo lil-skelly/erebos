@@ -7,6 +7,7 @@ from cryptography.hazmat.primitives.ciphers import algorithms, modes
 from fraction import Fraction
 import utils
 
+import zlib
 
 class Fractionator(utils.AES_WITH_IV_HELPER):
     MAGIC: int = 0xDEADBEEF
@@ -83,8 +84,11 @@ class Fractionator(utils.AES_WITH_IV_HELPER):
     def save_backup(self, backup_path: str) -> None:
         """Save fraction paths to a backup file."""
         try:
-            with open(backup_path, "a") as f:
-                f.writelines(f"{path}\n" for path in self.fraction_paths)
+            data = "".join((path + "\n" for path in self.fraction_paths)).encode()
+            
+            with open(backup_path, "wb") as f:
+                f.write(zlib.compress(data))
+                
             logging.debug(f"Backup saved at {backup_path}.")
         except OSError as e:
             logging.error(f"Failed to save backup: {e}")
@@ -92,8 +96,10 @@ class Fractionator(utils.AES_WITH_IV_HELPER):
     def load_backup(self, backup_path: str) -> None:
         """Load fraction paths from a backup file."""
         try:
-            with open(backup_path, "r") as f:
-                self.fraction_paths = [line.strip() for line in f]
+            with open(backup_path, "rb") as f:
+                data = zlib.decompress(f.read()).decode().split("\n")
+                self.fraction_paths = [line.strip() for line in data]
+
             logging.debug(f"Loaded {len(self.fraction_paths)} paths from backup.")
         except OSError as e:
             logging.error(f"Failed to load backup: {e}")
