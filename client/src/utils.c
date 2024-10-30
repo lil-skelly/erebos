@@ -54,7 +54,7 @@ void init_random(void) {
   }
 
   ret = fread(&seed, sizeof(seed), 1, random_device);
-  if (ret != sizeof(seed)) {
+  if (ret != 1) {
     log_error("Could not read from /dev/urandom: using time as seed");
     srand(time(NULL));
     fclose(random_device);
