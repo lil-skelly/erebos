@@ -166,9 +166,9 @@ int main(void) {
   close(sfd);
 
   return EXIT_SUCCESS;
-
-  /* There's nothing to see here, move on*/
-cleanup: // we accept NO comments on this. have a !nice day
+/* Cleanup section: This code clears all allocated resources. */
+/* There’s nothing to see here; move along. */
+cleanup:
   if (sfd != -1) {
     close(sfd);
   }
@@ -184,17 +184,13 @@ cleanup: // we accept NO comments on this. have a !nice day
   if (http_post_res.data) {
     http_free(&http_post_res);
   }
-  free(module); // no need to check module != NULL as free(NULL) is defined by
-  // the C standard to do nothing
-  if (private_key) {
-    free(private_key);
-  }
-  if (public_key) {
-    free(public_key);
-  }
-  if (pkey) {
-    EVP_PKEY_free(pkey);
-  }
 
+  // Clean up allocated keys and module memory.
+  free(module);
+  free(private_key);   
+  free(public_key);
+  EVP_PKEY_free(pkey);
+
+  /* Have a !nice day */
   return EXIT_FAILURE;
 }
