@@ -9,6 +9,7 @@ import utils
 
 import zlib
 
+
 class Fractionator(utils.AES_WITH_IV_HELPER):
     MAGIC: int = 0xDEADBEEF
     CHUNK_SIZE: int = 8192
@@ -16,14 +17,13 @@ class Fractionator(utils.AES_WITH_IV_HELPER):
     algorithm = algorithms.AES256
     mode = modes.CBC
 
-    def __init__(self, out_path: str, key: bytes) -> None:
+    def __init__(self, key: bytes) -> None:
         """Prepare a Fractionator object for reading and generating fractions."""
         self.file_path: str = NotImplemented
         self.file_size: int = 0
-        self.out_path: str = out_path
 
         self._fractions: list[Fraction] = []
-        self.fraction_paths: list[str] = []
+        self.fractions: list[bytes] = []
 
         self._buf_reader: Optional[io.BufferedReader] = None
 
@@ -64,62 +64,11 @@ class Fractionator(utils.AES_WITH_IV_HELPER):
         for i in range(num_chunks):
             self._make_fraction(i)
 
-    def _write_fraction(self, fraction: Fraction) -> None:
-        """Write a fraction to a file."""
-        path = os.path.join(
-            self.out_path, utils.random_string(Fractionator.FRACTION_PATH_LEN)
-        )
-        with open(path, "wb") as f:
-            f.write(fraction.header_to_bytes())
-            f.write(fraction.data)
-        self.fraction_paths.append(path)
-        logging.debug(f"Wrote fraction #{fraction.index} to {path}")
-
     def write_fractions(self) -> None:
         """Write all fractions to disk."""
-        os.makedirs(self.out_path, exist_ok=True)
         for fraction in self._fractions:
-            self._write_fraction(fraction)
-
-    def save_backup(self, backup_path: str) -> None:
-        """Save fraction paths to a backup file."""
-        try:
-            data = "".join((path + "\n" for path in self.fraction_paths)).encode()
-            
-            with open(backup_path, "wb") as f:
-                f.write(zlib.compress(data))
-                
-            logging.debug(f"Backup saved at {backup_path}.")
-        except OSError as e:
-            logging.error(f"Failed to save backup: {e}")
-
-    def load_backup(self, backup_path: str) -> None:
-        """Load fraction paths from a backup file."""
-        try:
-            with open(backup_path, "rb") as f:
-                data = zlib.decompress(f.read()).decode().split("\n")
-                self.fraction_paths = [line.strip() for line in data]
-
-            logging.debug(f"Loaded {len(self.fraction_paths)} paths from backup.")
-        except OSError as e:
-            logging.error(f"Failed to load backup: {e}")
-            return
-
-    def _clean_fraction(self, path: str) -> None:
-        """Delete a fraction file."""
-        try:
-            os.remove(path)
-            logging.debug(f"Removed {path}.")
-        except FileNotFoundError:
-            logging.debug(f"File not found: {path}")
-
-    def clean_fractions(self) -> None:
-        """Delete all written fractions."""
-        logging.info("Cleaning fractions...")
-        for path in self.fraction_paths:
-            self._clean_fraction(path)
-        self.fraction_paths.clear()
-        logging.info("Cleaning complete.")
+            fraction_data = fraction.header_to_bytes() + fraction.data
+            self.fractions.append(fraction_data)
 
     def close_stream(self) -> None:
         """Close the file stream if open."""
@@ -128,11 +77,10 @@ class Fractionator(utils.AES_WITH_IV_HELPER):
             self._buf_reader = None
             logging.debug(f"Closed stream to {self.file_path}.")
 
-    def finalize(self, backup_path: str) -> None:
+    def finalize(self) -> None:
         """Create, write and save a backup of the fractions"""
         self.make_fractions()
         self.write_fractions()
-        self.save_backup(backup_path)
 
     def __del__(self) -> None:
         self.close_stream()

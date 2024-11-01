@@ -1,5 +1,4 @@
 import sys
-import html
 from http.server import (
     HTTPStatus,
     SimpleHTTPRequestHandler,
@@ -8,37 +7,115 @@ from http.server import (
 )
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import serialization, hashes
-import io
-import os
 import base64
 import logging
+from collections import defaultdict
+from itertools import cycle
 
 
 class ErebosHTTPRequestHandler(SimpleHTTPRequestHandler):
-    """
-    HTTP request handler for erebos
-    - Lists the filenames in the given directory in plain text.
-    - On POST requests it expects a {"public_key"} field containing an RSA public-key,
-    and will respond with a AES key encrypted using the public key
-    """
+    server_aes_key: bytes = b""
+    fraction_data: list[bytes] = []
+    _stream_map = defaultdict(set)
+    _stream_iterators = {}
 
-    server_aes_key: bytes = NotImplemented
+    @property
+    def identifier(self) -> int:
+        """A unique identifier for each client"""
+        return hash(self.client_address[0] + str(self.client_address[1]))
+
+    @property
+    def fraction_num(self) -> int:
+        """The amount of elements in the fraction_data attribute"""
+        return len(self.fraction_data)
+
+    def get_stream_iterator(self):
+        """
+        Accesses the stream iterator for the current client-specific stream, ensuring a unique
+        stream for each client IP.
+        """
+
+        if self.identifier not in self._stream_map:
+            if self.fraction_data:  # Check if there is data to populate
+                self._stream_map[self.identifier].update(self.fraction_data)
+                self._stream_iterators[self.identifier] = cycle(
+                    self._stream_map[self.identifier]
+                )
+                logging.info(f"{self.identifier}")
+            else:
+                # Handle case where fraction_data is empty
+                self._stream_map[self.identifier] = set()
+                self._stream_iterators[self.identifier] = iter([])  # Empty iterator
+
+        return self._stream_iterators[self.identifier]
+
+    def do_GET(self):
+        """Serve a GET request."""
+        if self.path == "/stream":
+            self.handle_stream_endpoint()
+        elif self.path == "/size":
+            self.handle_size_endpoint()
+        else:
+            self.send_error(404, f"{self.path} does not exist")
+
+    def handle_stream_endpoint(self):
+        """Handles the /stream endpoint, sending the next fraction to the client."""
+        stream_iterator = self.get_stream_iterator()
+        data = next(stream_iterator)
+
+        self._send_response(data)
+
+    def handle_size_endpoint(self):
+        """Handles the /size endpoint, sending the number of fractions."""
+        data = str(self.fraction_num).encode()
+        self._send_response(data)
+
+    def _send_response(self, data: bytes):
+        """Send a response with given data."""
+        try:
+            self.send_response(200)
+            self.send_header("Content-type", "text/plain")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+        except (ConnectionError, BrokenPipeError):
+            # Client disconnected or network issue
+            logging.error("Connection error: Client may have disconnected.")
+        except Exception as e:
+            logging.error(f"Unexpected error while sending response: {e}")
+
+    def finish(self):
+        """Called after each request and handles cleanup if a client has disconnected"""
+
+        # Remove the clients queue from the stream map
+        if (
+            self.headers.get("Connection", "") == "close"
+            and self.identifier in self._stream_map
+        ):
+            logging.info(
+                f"[{self.address_string()}] Disconnected. Wasted {len(self._stream_map[self.identifier])} fractions."
+            )
+            del self._stream_map[self.identifier]
+        super().finish()
 
     def do_POST(self):
+        """Handle POST requests to encrypt and send the AES key."""
         # Read the content length and the raw data from the POST request
-        content_length = int(self.headers["Content-Length"])  # Get the size of data
-        public_key_pem = self.rfile.read(content_length)  # Read the request body (bytes)
-        
-        if public_key_pem is None:
+        content_length = int(
+            self.headers.get("Content-Length", 0)
+        )  # Get the size of data
+        if not content_length:
             self.send_error(400, "No data in request body")
             logging.error("No data found in request body")
             return
 
+        public_key_pem = self.rfile.read(
+            content_length
+        )  # Read the request body (bytes)
+
         # Load the public key provided by the client
         try:
-            client_public_key = serialization.load_pem_public_key(
-                public_key_pem
-            )
+            client_public_key = serialization.load_pem_public_key(public_key_pem)
         except Exception as e:
             self.send_error(400, f"Invalid public key format: {str(e)}")
             logging.error(f"Received invalid public key format from client: {str(e)}")
@@ -61,59 +138,14 @@ class ErebosHTTPRequestHandler(SimpleHTTPRequestHandler):
             return
 
         # Send HTTP response with the encrypted AES key
-        self.send_response(200)
-        self.send_header("Content-type", "plain/text")
-        self.send_header("Content-Length", str(len(base64_encoded_aes_key)))
-        self.end_headers()
-        
-        self.wfile.write(base64_encoded_aes_key)
-        
+        self._send_response(base64_encoded_aes_key)
         logging.info(f"Successfully sent encrypted AES key to the client.")
-   
-    def list_directory(self, path):
-        """
-        Helper to produce a directory listing (absent index.html).
-        The directory listing (text/plain) contains links to the files in the specified directory.
-
-        Return value is either a file object, or None (indicating an
-        error).  In either case, the headers are sent, making the
-        interface the same as for send_head().
-
-        """
-        try:
-            file_list = os.listdir(path)
-        except OSError:
-            self.send_error(HTTPStatus.NOT_FOUND, "No permission to list directory")
-            return None
-
-        file_list.sort(key=lambda a: a.lower())
-        contents = []
-
-        enc = sys.getfilesystemencoding()
-
-        server_addr = self.server.server_address
-        host, port = server_addr
-        for name in file_list:
-            if name != ".erebos_bckp":
-                display_name = f"http://{host}:{port}{self.path}{name}"
-                contents.append(html.escape(display_name, quote=False))
-
-        encoded = "\n".join(contents).encode(enc, "surrogateescape")
-        f = io.BytesIO()
-        f.write(encoded)
-        f.seek(0)
-
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-type", f"text/plain; charset={enc}")
-        self.send_header("Content-Length", str(len(encoded)))
-        self.end_headers()
-        
-        return f
 
 
 def serve(
     HandlerClass,
     aes_key: bytes,
+    fraction_data: list[bytes],
     ServerClass=ThreadingHTTPServer,
     protocol="HTTP/1.0",
     port=8000,
@@ -128,6 +160,7 @@ def serve(
 
     HandlerClass.protocol_version = protocol
     HandlerClass.server_aes_key = aes_key
+    HandlerClass.fraction_data = fraction_data
 
     with ServerClass(addr, HandlerClass) as httpd:
         host, port = httpd.socket.getsockname()[:2]
@@ -142,7 +175,9 @@ def serve(
             sys.exit(0)
 
 
-def start_server(ServerClass, aes_key: bytes, port: int = 8000, bind=None):
+def start_server(
+    ServerClass, aes_key: bytes, fraction_data: list[bytes], port: int = 8000, bind=None
+):
     serve(
         HandlerClass=ErebosHTTPRequestHandler,
         ServerClass=ServerClass,
@@ -150,4 +185,5 @@ def start_server(ServerClass, aes_key: bytes, port: int = 8000, bind=None):
         port=port,
         bind=bind,
         aes_key=aes_key,
+        fraction_data=fraction_data,
     )

@@ -17,8 +17,6 @@ logging.basicConfig(
     format="[%(levelname)s: %(funcName)s] %(message)s", level=logging.INFO
 )
 
-BACKUP_FILENAME = ".erebos_bckp"
-
 
 def handle_args(parser: argparse.ArgumentParser):
     """Configure the given ArgumentParser"""
@@ -30,23 +28,11 @@ def handle_args(parser: argparse.ArgumentParser):
         help="bind to this address " "(default: all interfaces)",
     )
     parser.add_argument(
-        "-o",
-        "--output",
-        default=os.getcwd(),
-        help="Output directory" "(default: current directory)",
-    )
-    parser.add_argument(
         "port",
         default=8000,
         type=int,
         nargs="?",
         help="bind to this port " "(default: %(default)s)",
-    )
-    parser.add_argument(
-        "--clean", action="store_true", help="Clean generated fraction files"
-    )
-    parser.add_argument(
-        "--rm-backup", action="store_true", help="Remove the generated backup file"
     )
     return parser.parse_args()
 
@@ -71,20 +57,6 @@ def generate_aes_key() -> bytes:
     return key
 
 
-def handle_cleanup(fractionator: Fractionator, backup_path: str) -> None:
-    """Clean up fractions and remove backup file if necessary."""
-    if os.path.exists(backup_path):
-        fractionator.load_backup(backup_path)
-        fractionator.clean_fractions()
-        try:
-            os.remove(backup_path)
-            logging.info(f"Backup file '{backup_path}' removed.")
-        except FileNotFoundError:
-            logging.critical(f"Backup file '{backup_path}' not found.")
-    else:
-        logging.warning(f"No file found at '{backup_path}'.")
-
-
 if __name__ == "__main__":
     # ensure dual-stack is not disabled; ref #38907
     class DualStackServer(ThreadingHTTPServer):
@@ -95,9 +67,7 @@ if __name__ == "__main__":
             return super().server_bind()
 
         def finish_request(self, request, client_address):
-            self.RequestHandlerClass(
-                request, client_address, self, directory=args.output
-            )
+            self.RequestHandlerClass(request, client_address, self)
 
     # Parse command-line arguments
     parser = argparse.ArgumentParser(
@@ -105,23 +75,15 @@ if __name__ == "__main__":
     )
     args = handle_args(parser)
 
-    # Finalize the output/backup paths
-    out_path = os.path.abspath(args.output)
-    backup_path = os.path.join(out_path, BACKUP_FILENAME)
-
     # Initialize the fractionator
     key = generate_aes_key()
-    fractionator = Fractionator(out_path, key)
-
-    handle_cleanup(fractionator, backup_path)
-    if args.clean:
-        sys.exit(0)
+    fractionator = Fractionator(key)
 
     # Set up Fractionator with the provided file path
     file_path = validate_lkm_object_file(args.file)
     fractionator.file_path = file_path
     # Prepare the fractions
-    fractionator.finalize(backup_path)
+    fractionator.finalize()
 
     # Start the server for staging fractions
     start_server(
@@ -129,4 +91,5 @@ if __name__ == "__main__":
         port=args.port,
         bind=args.bind,
         aes_key=fractionator.key,
+        fraction_data=fractionator.fractions,
     )

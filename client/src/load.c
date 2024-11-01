@@ -90,7 +90,7 @@ int load_lkm(const uint8_t *lkm, ssize_t total_size) {
     return -1;
   }
 
-  log_debug("Module loaded successfully");
+  log_info("Module loaded successfully. Happy pwning :D");
   close(fdlkm);
 
   return 0;
