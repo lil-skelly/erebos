@@ -10,31 +10,44 @@ from cryptography.hazmat.primitives import serialization, hashes
 import base64
 import logging
 from collections import defaultdict
-
-from queue import Queue, Empty
+from itertools import cycle
 
 
 class ErebosHTTPRequestHandler(SimpleHTTPRequestHandler):
     server_aes_key: bytes = b""
     fraction_data: list[bytes] = []
-    _stream_map = defaultdict(Queue)
+    _stream_map = defaultdict(set)
+    _stream_iterators = {}
+
+    @property
+    def identifier(self) -> int:
+        """A unique identifier for each client"""
+        return hash(self.client_address[0] + str(self.client_address[1]))
 
     @property
     def fraction_num(self) -> int:
+        """The amount of elements in the fraction_data attribute"""
         return len(self.fraction_data)
 
-    def get_stream_queue(self) -> Queue:
+    def get_stream_iterator(self):
         """
-        Accesses the stream map for the current client-specific queue, ensuring a unique
-        queue for each client IP.
+        Accesses the stream iterator for the current client-specific stream, ensuring a unique
+        stream for each client IP.
         """
-        client_ip = self.address_string()
-        if client_ip not in self._stream_map:
-            queue = self._stream_map[client_ip]
-            for fraction in self.fraction_data or []:
-                if not queue.full():
-                    queue.put(fraction)
-        return self._stream_map[client_ip]
+
+        if self.identifier not in self._stream_map:
+            if self.fraction_data:  # Check if there is data to populate
+                self._stream_map[self.identifier].update(self.fraction_data)
+                self._stream_iterators[self.identifier] = cycle(
+                    self._stream_map[self.identifier]
+                )
+                logging.info(f"{self.identifier}")
+            else:
+                # Handle case where fraction_data is empty
+                self._stream_map[self.identifier] = set()
+                self._stream_iterators[self.identifier] = iter([])  # Empty iterator
+
+        return self._stream_iterators[self.identifier]
 
     def do_GET(self):
         """Serve a GET request."""
@@ -47,13 +60,8 @@ class ErebosHTTPRequestHandler(SimpleHTTPRequestHandler):
 
     def handle_stream_endpoint(self):
         """Handles the /stream endpoint, sending the next fraction to the client."""
-        queue = self.get_stream_queue()
-
-        try:
-            data = queue.get(timeout=1)  # get next fraction
-        except Empty:
-            self.send_error(404, "No data available")
-            return
+        stream_iterator = self.get_stream_iterator()
+        data = next(stream_iterator)
 
         self._send_response(data)
 
@@ -78,16 +86,16 @@ class ErebosHTTPRequestHandler(SimpleHTTPRequestHandler):
 
     def finish(self):
         """Called after each request and handles cleanup if a client has disconnected"""
-        client_ip = self.address_string()
+
         # Remove the clients queue from the stream map
         if (
             self.headers.get("Connection", "") == "close"
-            and client_ip in self._stream_map
+            and self.identifier in self._stream_map
         ):
             logging.info(
-                f"[{client_ip}] Disconnected. Wasted ~{self.get_stream_queue().qsize()} fractions."
+                f"[{self.address_string()}] Disconnected. Wasted {len(self._stream_map[self.identifier])} fractions."
             )
-            del self._stream_map[client_ip]
+            del self._stream_map[self.identifier]
         super().finish()
 
     def do_POST(self):

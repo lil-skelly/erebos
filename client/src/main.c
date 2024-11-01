@@ -102,7 +102,6 @@ static fraction_t *fetch_fractions(int sfd, int *fraction_count) {
   fraction_t *fractions = NULL;
   char fraction_url[50];
   int i, num_fractions;
-  char *line;
 
   snprintf(fraction_url, 50, "http://%s:%s/stream", SERVER_IP, SERVER_PORT);
 
@@ -122,8 +121,9 @@ static fraction_t *fetch_fractions(int sfd, int *fraction_count) {
     return NULL;
   }
   
+  i = 0;
   while (i < num_fractions) {
-    log_debug("Downloading %s", line);
+    log_debug("Downloading fraction no.%d", i);
 
     if (download_fraction(sfd, fraction_url, &fractions[i]) != 0) {
       log_error("Failed to download fraction");
