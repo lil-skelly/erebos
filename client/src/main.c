@@ -138,12 +138,6 @@ static fraction_t *fetch_fractions(int sfd, int *fraction_count, char *ip_addres
   *fraction_count = i;
   return fractions;
 }
-bool isValidIp(char *ipAddress)
-{
-    struct sockaddr_in sa;
-    int result = inet_pton(AF_INET, ipAddress, &(sa.sin_addr));
-    return result;
-}
 
 int main(int argc, char **argv) {
 
@@ -152,17 +146,6 @@ int main(int argc, char **argv) {
   if(argc != 3){
     log_error("Usage: ./client IP PORT");
     exit(1);
-  }
-  else if(isValidIp(argv[1]) != 1){
-    log_error("Wrong IP Format");
-    exit(1);
-  }
-  else{
-    uint16_t port_n = strtol(port, NULL, 10);
-    if(port_n <= 0 || port_n >= 65535){
-      log_error("Use a valid port");
-      exit(1);
-    }
   }
 
   int sfd = -1; // to be extra professional
