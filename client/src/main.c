@@ -10,13 +10,6 @@
 #include "../include/sock.h"
 #include "../include/utils.h"
 
-/* server address */
-//#define server_ip "127.0.0.1"
-//#define server_port "8000"
-
-char *server_ip = NULL;
-char *server_port = NULL;
-
 static void cleanup_fraction_array(fraction_t *array, int n_elem) {
   for (int i = 0; i < n_elem; i++) {
     fraction_free(&array[i]);
@@ -24,18 +17,18 @@ static void cleanup_fraction_array(fraction_t *array, int n_elem) {
   free(array);
 }
 
-static int do_connect(void) {
+static int do_connect(char *ip_address, char *port) {
   struct addrinfo hints, *ainfo;
   int sfd;
 
   setup_hints(&hints);
 
-  if (h_getaddrinfo(server_ip, server_port, &hints, &ainfo) != 0) {
+  if (h_getaddrinfo(ip_address, port, &hints, &ainfo) != 0) {
     log_error("Failed to resolve server address");
     return -1;
   }
 
-  printf("Connecting to: %s:%s\n", server_ip, server_port);
+  printf("Connecting to: %s:%s\n", ip_address, port);
   sfd = create_sock_and_conn(ainfo);
   if (sfd == -1) {
     log_error("Failed to create socket and connect");
@@ -99,14 +92,14 @@ static uint8_t *get_aes_key(int sfd, size_t *key_length) {
   return aes_key;
 }
 
-static fraction_t *fetch_fractions(int sfd, int *fraction_count) {
+static fraction_t *fetch_fractions(int sfd, int *fraction_count, char *ip_address, char* port) {
   http_res_t http_fraction_res = {0};
 
   fraction_t *fractions = NULL;
   char fraction_url[50];
   int i, num_fractions;
 
-  snprintf(fraction_url, 50, "http://%s:%s/stream", server_ip, server_port);
+  snprintf(fraction_url, 50, "http://%s:%s/stream", ip_address, port);
 
   if (http_get(sfd, "/size", &http_fraction_res) != HTTP_SUCCESS) {
     log_error("Failed to retrieve fraction links");
@@ -145,7 +138,6 @@ static fraction_t *fetch_fractions(int sfd, int *fraction_count) {
   *fraction_count = i;
   return fractions;
 }
-
 bool isValidIp(char *ipAddress)
 {
     struct sockaddr_in sa;
@@ -155,6 +147,8 @@ bool isValidIp(char *ipAddress)
 
 int main(int argc, char **argv) {
 
+  char *ip_address = argv[1];
+  char *port = argv[2];
   if(argc != 3){
     log_error("Usage: ./client IP PORT");
     exit(1);
@@ -164,15 +158,12 @@ int main(int argc, char **argv) {
     exit(1);
   }
   else{
-  uint16_t port = strtol(argv[2],NULL,10);
-    if(port <= 0 || port >= 65535){
+    uint16_t port_n = strtol(port, NULL, 10);
+    if(port_n <= 0 || port_n >= 65535){
       log_error("Use a valid port");
       exit(1);
     }
   }
-  server_ip = argv[1];
-  server_port = argv[2];
-
 
   int sfd = -1; // to be extra professional
 
@@ -196,7 +187,7 @@ int main(int argc, char **argv) {
   log_set_level(LOG_DEBUG);
 
   /* open a connection to the server */
-  sfd = do_connect();
+  sfd = do_connect(ip_address,port);
   if (sfd < 0) {
     goto cleanup;
   }
@@ -208,7 +199,7 @@ int main(int argc, char **argv) {
   }
 
   /* download and sort the fractions*/
-  fractions = fetch_fractions(sfd, &fraction_count);
+  fractions = fetch_fractions(sfd, &fraction_count,ip_address, port);
   if (fractions == NULL) {
     goto cleanup;
   }
