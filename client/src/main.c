@@ -182,7 +182,7 @@ int main(int argc, char **argv) {
   int fraction_count;
 
   if (argc != 3) {
-    log_error("Usage: ./client IP PORT");
+    log_error("Usage: %s IP PORT", argv[0]);
     goto cleanup;
   }
 
