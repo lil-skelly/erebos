@@ -25,7 +25,7 @@ typedef struct {
     uint8_t *data;
 } fraction_t;
 
-int download_fraction(int sfd, char *url, fraction_t *fraction);
+int download_fraction(int sfd, fraction_t *fraction);
 int fraction_parse(char *data, size_t size, fraction_t *fraction);
 int check_magic(uint32_t data);
 void print_fraction(fraction_t fraction);

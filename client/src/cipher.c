@@ -37,29 +37,33 @@ int base64_decode(const char *b64_input, unsigned char **output,
 }
 
 ssize_t aes_decrypt(uint8_t *ciphertext, size_t ciphertext_len, uint8_t *key,
-                       uint8_t *iv, uint8_t *plaintext) {
+                    uint8_t *iv, uint8_t *plaintext) {
   EVP_CIPHER_CTX *ctx;
   int len;
   int plaintext_len;
 
   if (!(ctx = EVP_CIPHER_CTX_new())) {
+    EVP_CIPHER_CTX_free(ctx);
     print_errors();
     return -1;
   }
 
   if (1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv)) {
+    EVP_CIPHER_CTX_free(ctx);
     print_errors();
     return -1;
   }
 
   if (1 !=
       EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len)) {
+    EVP_CIPHER_CTX_free(ctx);
     print_errors();
     return -1;
   }
   plaintext_len = len;
 
   if (1 != EVP_DecryptFinal_ex(ctx, plaintext + len, &len)) {
+    EVP_CIPHER_CTX_free(ctx);
     print_errors();
     return -1;
   }

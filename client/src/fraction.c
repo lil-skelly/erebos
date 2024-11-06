@@ -1,21 +1,12 @@
 #include "../include/fraction.h"
 #include "../include/crc32.h"
 
-int download_fraction(int sfd, char *url, fraction_t *fraction) {
-  char *path = NULL;
+int download_fraction(int sfd, fraction_t *fraction) {
   http_res_t res;
   fraction_t downloaded_fraction = {};
 
-  // Parse the URL to get the path
-  path = get_path_from_url(url);
-  if (!path) {
-    log_error("Invalid URL: %s", url);
-    return 1;
-  }
-
   // Perform the HTTP GET request
-  if (http_get(sfd, path, &res) != HTTP_SUCCESS) {
-    log_error("Failed to download: %s", url);
+  if (http_get(sfd, "/stream", &res) != HTTP_SUCCESS) {
     return 1;
   }
 
