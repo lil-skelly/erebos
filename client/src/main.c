@@ -120,8 +120,7 @@ static fraction_t *fetch_fractions(int sfd, int *fraction_count,
     return NULL;
   }
 
-  i = 0;
-  while (i < num_fractions) {
+  for (i = 0; i < num_fractions; i++) {
     log_debug("Downloading fraction no.%d", i);
 
     if (download_fraction(sfd, fraction_url, &fractions[i]) != 0) {
@@ -133,8 +132,6 @@ static fraction_t *fetch_fractions(int sfd, int *fraction_count,
       cleanup_fraction_array(fractions, i);
       return NULL;
     }
-
-    i++;
   }
 
   http_free(&http_fraction_res);
