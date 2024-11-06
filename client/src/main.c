@@ -1,3 +1,5 @@
+#include <arpa/inet.h>
+#include <limits.h>
 #include <openssl/evp.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -139,30 +141,69 @@ static fraction_t *fetch_fractions(int sfd, int *fraction_count, char *ip_addres
   return fractions;
 }
 
+static bool validate_ip(const char *ip) {
+  struct in_addr addr;
+
+  if (inet_pton(AF_INET, ip, &addr) != 1) {
+    return false;
+  }
+
+  return true;
+}
+
+static bool validate_port(const char *port) {
+  long portl;
+
+  errno = 0;
+
+  portl = strtol(port, NULL, 10);
+
+  if (errno != 0) return false;
+  if (portl < 0 || portl > USHRT_MAX) return false;
+
+  return true;
+}
+
 int main(int argc, char **argv) {
 
-  char *ip_address = argv[1];
-  char *port = argv[2];
-  if(argc != 3){
-    log_error("Usage: ./client IP PORT");
-    exit(1);
-  }
+  char *ip_address;
+  char *port;
 
   int sfd = -1; // to be extra professional
 
   unsigned char *aes_key = NULL;
   size_t key_len = 0;
 
-  fraction_t *fractions;
+  fraction_t *fractions = NULL;
   int fraction_count;
 
   uint8_t *module = NULL;
   ssize_t module_size;
 
+
+  if(argc != 3){
+    log_error("Usage: ./client IP PORT");
+    goto cleanup;
+  }
+
+  ip_address = argv[1];
+  port = argv[2];
+
+  // validate IP and port
+  if (!validate_ip(ip_address)) {
+    log_error("Invalid IP, format as %%d.%%d.%%d.%%d");
+    goto cleanup;
+  }
+
+  if (!validate_port(port)) {
+    log_error("Invalid port, should be a number in the range (0-%d)", USHRT_MAX);
+    goto cleanup;
+  }
+
   /* We need root permissions to load LKMs */
   if (geteuid() != 0) {
     log_error("This program needs to be run as root!");
-    exit(1);
+    goto cleanup;
   }
 
   /* initialize PRNG and set logging level */
