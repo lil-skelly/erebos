@@ -94,15 +94,11 @@ static uint8_t *get_aes_key(int sfd, size_t *key_length) {
   return aes_key;
 }
 
-static fraction_t *fetch_fractions(int sfd, int *fraction_count,
-                                   char *ip_address, char *port) {
+static fraction_t *fetch_fractions(int sfd, int *fraction_count) {
   http_res_t http_fraction_res = {0};
 
   fraction_t *fractions = NULL;
-  char fraction_url[50];
   int i, num_fractions;
-
-  snprintf(fraction_url, 50, "http://%s:%s/stream", ip_address, port);
 
   if (http_get(sfd, "/size", &http_fraction_res) != HTTP_SUCCESS) {
     log_error("Failed to retrieve fraction links");
@@ -123,7 +119,7 @@ static fraction_t *fetch_fractions(int sfd, int *fraction_count,
   for (i = 0; i < num_fractions; i++) {
     log_debug("Downloading fraction no.%d", i);
 
-    if (download_fraction(sfd, fraction_url, &fractions[i]) != 0) {
+    if (download_fraction(sfd, &fractions[i]) != 0) {
       log_error("Failed to download fraction");
 
       // we have to cleanup only until i because the other fractions have not
@@ -221,7 +217,7 @@ int main(int argc, char **argv) {
   }
 
   /* download and sort the fractions*/
-  fractions = fetch_fractions(sfd, &fraction_count, ip_address, port);
+  fractions = fetch_fractions(sfd, &fraction_count);
   if (fractions == NULL) {
     goto cleanup;
   }
