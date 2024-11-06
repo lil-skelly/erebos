@@ -141,12 +141,13 @@ static fraction_t *fetch_fractions(int sfd, int *fraction_count, char *ip_addres
 
 int main(int argc, char **argv) {
 
-  char *ip_address = argv[1];
-  char *port = argv[2];
   if(argc != 3){
     log_error("Usage: ./client IP PORT");
     exit(1);
   }
+
+  char *ip_address = argv[1];
+  char *port = argv[2];
 
   int sfd = -1; // to be extra professional
 
