@@ -1,6 +1,5 @@
 import sys
 from http.server import (
-    HTTPStatus,
     SimpleHTTPRequestHandler,
     ThreadingHTTPServer,
     _get_best_family,
@@ -9,68 +8,48 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import serialization, hashes
 import base64
 import logging
-from collections import defaultdict
-from itertools import cycle
+from ttl_cache import TTLCache
 
-
-class ErebosHTTPRequestHandler(SimpleHTTPRequestHandler):
+class FractionStreamHandler(SimpleHTTPRequestHandler):
     server_aes_key: bytes = b""
     fraction_data: list[bytes] = []
-    _stream_map = defaultdict(set)
-    _stream_iterators = {}
-
-    @property
-    def identifier(self) -> int:
-        """A unique identifier for each client"""
-        return hash(self.client_address[0] + str(self.client_address[1]))
-
+    __client_fraction_index = TTLCache(maxsize=100, ttl=600)
+        
     @property
     def fraction_num(self) -> int:
         """The amount of elements in the fraction_data attribute"""
         return len(self.fraction_data)
 
-    def get_stream_iterator(self):
-        """
-        Accesses the stream iterator for the current client-specific stream, ensuring a unique
-        stream for each client IP.
-        """
+    @property
+    def identifier(self) -> int:
+        """A unique identifier for each client"""
+        return hash(f"{self.client_address[0]}:{self.client_address[1]}")
 
-        if self.identifier not in self._stream_map:
-            if self.fraction_data:  # Check if there is data to populate
-                self._stream_map[self.identifier].update(self.fraction_data)
-                self._stream_iterators[self.identifier] = cycle(
-                    self._stream_map[self.identifier]
-                )
-                logging.info(f"{self.identifier}")
-            else:
-                # Handle case where fraction_data is empty
-                self._stream_map[self.identifier] = set()
-                self._stream_iterators[self.identifier] = iter([])  # Empty iterator
+    @property
+    def fraction_index(self) -> int:
+        """Return the fraction index of the client (-1 for new clients)"""
+        return self.__client_fraction_index.get(self.identifier, -1)
+    
+    @fraction_index.setter
+    def fraction_index(self, index: int) -> None:
+        if not isinstance(index, int):
+            raise ValueError("fraction_index must be of type int")
+        
+        # Ensure index is in-bounds with self.fraction_data
+        index = index % self.fraction_num if self.fraction_data else 0
+        self.__client_fraction_index[self.identifier] = index
 
-        return self._stream_iterators[self.identifier]
-
-    def do_GET(self):
-        """Serve a GET request."""
-        if self.path == "/stream":
-            self.handle_stream_endpoint()
-        elif self.path == "/size":
-            self.handle_size_endpoint()
-        else:
-            self.send_error(404, f"{self.path} does not exist")
-
-    def handle_stream_endpoint(self):
-        """Handles the /stream endpoint, sending the next fraction to the client."""
-        stream_iterator = self.get_stream_iterator()
-        data = next(stream_iterator)
-
-        self._send_response(data)
-
-    def handle_size_endpoint(self):
-        """Handles the /size endpoint, sending the number of fractions."""
-        data = str(self.fraction_num).encode()
-        self._send_response(data)
-
-    def _send_response(self, data: bytes):
+    @property
+    def next_fraction(self) -> bytes:
+        """Returns the next fraction for the client, updating their fraction index."""
+        if not self.fraction_data:
+            logging.warning("Fraction data is empty. Sending empty response.")
+            return b""
+        
+        self.fraction_index += 1
+        return self.fraction_data[self.fraction_index]
+ 
+    def _send_response(self, data: bytes) -> None:
         """Send a response with given data."""
         try:
             self.send_response(200)
@@ -79,26 +58,43 @@ class ErebosHTTPRequestHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(data)
         except (ConnectionError, BrokenPipeError):
-            # Client disconnected or network issue
-            logging.error("Connection error: Client may have disconnected.")
+            logging.error(f"Connection error: Client {self.address_string()} may have disconnected.")
         except Exception as e:
-            logging.error(f"Unexpected error while sending response: {e}")
+            logging.error(f"Unexpected error while sending response to {self.address_string()}: {e}")
 
-    def finish(self):
-        """Called after each request and handles cleanup if a client has disconnected"""
-
-        # Remove the clients queue from the stream map
-        if (
-            self.headers.get("Connection", "") == "close"
-            and self.identifier in self._stream_map
-        ):
+    def finish(self) -> None:
+        """Called after each request and handles cleanup if a client has disconnected."""
+        if self.headers.get("Connection", "") == "close":
+            unused_fractions = self.fraction_num - self.fraction_index
             logging.info(
-                f"[{self.address_string()}] Disconnected. Wasted {len(self._stream_map[self.identifier])} fractions."
+                f"[{self.address_string()}] Disconnected. {unused_fractions} fractions not downloaded."
             )
-            del self._stream_map[self.identifier]
+            
+            # Remove client from cache if they are disconnected
+            self.__client_fraction_index.pop(self.identifier, None)
+            
         super().finish()
 
-    def do_POST(self):
+    def handle_stream_endpoint(self) -> None:
+        """Handles the /stream endpoint, sending the next fraction to the client."""
+        data = self.next_fraction
+        self._send_response(data)
+
+    def handle_size_endpoint(self) -> None:
+        """Handles the /size endpoint, sending the number of fractions."""
+        data = str(self.fraction_num).encode()
+        self._send_response(data)
+
+    def do_GET(self) -> None:
+        """Serve a GET request."""
+        if self.path == "/stream":
+            self.handle_stream_endpoint()
+        elif self.path == "/size":
+            self.handle_size_endpoint()
+        else:
+            self.send_error(404, f"{self.path} does not exist")
+
+    def do_POST(self) -> None:
         """Handle POST requests to encrypt and send the AES key."""
         # Read the content length and the raw data from the POST request
         content_length = int(
@@ -179,7 +175,7 @@ def start_server(
     ServerClass, aes_key: bytes, fraction_data: list[bytes], port: int = 8000, bind=None
 ):
     serve(
-        HandlerClass=ErebosHTTPRequestHandler,
+        HandlerClass=FractionStreamHandler,
         ServerClass=ServerClass,
         protocol="HTTP/1.1",  # permit keep-alive connections
         port=port,

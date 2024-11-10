@@ -3,7 +3,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("AGPL");
 MODULE_AUTHOR("lil-skelly");
 MODULE_DESCRIPTION("Basic LKM for the Erebos loader");
 MODULE_VERSION("1.0");
